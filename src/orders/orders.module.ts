@@ -12,6 +12,27 @@ import { OrderDetail } from './entities/order-detail.entity';
   imports: [
     TypeOrmModule.forFeature([Order, OrderDetail]),
     ClientsModule.registerAsync([
+      /* {
+        imports: [ConfigModule],
+        inject: [ConfigService],
+        name: 'PRODUCT_SERVICE',
+        useFactory: async (configService) => ({
+          transport: Transport.KAFKA,
+          options: {
+            client: {
+              clientId: 'product',
+              brokers: [
+                `${configService.get('KAFKA_HOST')}:${configService.get(
+                  'KAFKA_PORT',
+                )}`,
+              ],
+            },
+            consumer: {
+              groupId: 'product-consumer',
+            },
+          },
+        }),
+      }, */
       {
         imports: [ConfigModule],
         inject: [ConfigService],

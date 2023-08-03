@@ -4,7 +4,7 @@ import { APP_INTERCEPTOR } from '@nestjs/core';
 
 import { configValidationSchema } from './config/validate-env';
 import { PostgresModule } from './database/postgres.module';
-import { RedisModule } from './database/redis.module';
+// import { RedisModule } from './database/redis.module';
 import { OrdersModule } from './orders/orders.module';
 
 @Module({
@@ -15,7 +15,7 @@ import { OrdersModule } from './orders/orders.module';
       isGlobal: true,
     }),
     PostgresModule,
-    RedisModule,
+    // RedisModule,
     OrdersModule,
   ],
   providers: [

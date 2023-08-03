@@ -1,13 +1,39 @@
-import { Controller, UseFilters } from '@nestjs/common';
-import { EventPattern, MessagePattern, Payload } from '@nestjs/microservices';
+import { Controller, Inject, UseFilters } from '@nestjs/common';
+import {
+  ClientKafka,
+  EventPattern,
+  MessagePattern,
+  Payload,
+} from '@nestjs/microservices';
 
 import { OrdersService } from './orders.service';
 import { ExceptionFilter } from 'src/filters/rpc-exception.filter';
+import { DashboardDto } from './dto/dashboard.to';
 
 @Controller()
 @UseFilters(new ExceptionFilter())
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(
+    private readonly ordersService: OrdersService,
+  ) /*  @Inject('PRODUCT_SERVICE')
+    private readonly productClient: ClientKafka, */ {}
+
+  /*  async onModuleInit() {
+    const topics = [
+      'create',
+      'findall',
+      'findbyids',
+      'findbyid',
+      'findbyslug',
+      'update',
+      'delete',
+      'staticpaths',
+    ];
+    topics.forEach((topic) => {
+      this.productClient.subscribeToResponseOf(`products.${topic}`);
+    });
+    await this.productClient.connect();
+  } */
 
   @MessagePattern('orders.create')
   create(@Payload() createOrderDto: any) {
@@ -113,5 +139,21 @@ export class OrdersController {
   @EventPattern('orders.cancelled')
   cancelOrder(id: string) {
     this.ordersService.updateOrderToCancelled(id);
+  }
+
+  // dashboard
+  @MessagePattern('orders.getnumberordersperday')
+  getNumberOrdersPerDay(@Payload() dashboardDto: DashboardDto) {
+    return this.ordersService.getNumberOrdersPerDay(dashboardDto);
+  }
+
+  @MessagePattern('orders.gethotsellingproduct')
+  getHotSellingProduct(@Payload() dashboardDto: DashboardDto) {
+    return this.ordersService.getHotSellingProduct(dashboardDto);
+  }
+
+  @MessagePattern('orders.getrevenueperday')
+  getRevenuePerDay(@Payload() dashboardDto: DashboardDto) {
+    return this.ordersService.getRevenuePerDay(dashboardDto);
   }
 }
