@@ -3,7 +3,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { ClientKafka, RpcException } from '@nestjs/microservices';
 import { In, Repository } from 'typeorm';
 import { instanceToPlain } from 'class-transformer';
-import { firstValueFrom, lastValueFrom, timeout } from 'rxjs';
 
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
@@ -111,7 +110,10 @@ export class OrdersService {
     try {
       return await this.orderRepository.find({
         relations: {
-          order_details: true,
+          order_details: {
+            product: true,
+          },
+          address: true,
         },
         where: {
           user_id: userId,
@@ -130,7 +132,10 @@ export class OrdersService {
           id,
         },
         relations: {
-          order_details: true,
+          order_details: {
+            product: true,
+          },
+          address: true,
         },
       });
     } catch (error) {
@@ -146,6 +151,7 @@ export class OrdersService {
         throw new RpcException(`Cannot find order with id(${id})`);
       }
 
+      // save and return relation
       const result = await this.orderRepository.save({
         ...order,
         ...updateOrderDto,
@@ -178,6 +184,12 @@ export class OrdersService {
       where: {
         id: cancelOrderDto.order_id,
         user_id: cancelOrderDto.user_id,
+      },
+      relations: {
+        order_details: {
+          product: true,
+        },
+        address: true,
       },
     });
     if (!order) {
@@ -213,6 +225,12 @@ export class OrdersService {
         id: returnOrderDto.order_id,
         user_id: returnOrderDto.user_id,
       },
+      relations: {
+        order_details: {
+          product: true,
+        },
+        address: true,
+      },
     });
     if (!order) {
       throw new RpcException('Order not found');
@@ -244,7 +262,10 @@ export class OrdersService {
           user_id: resellOrderDto.user_id,
         },
         relations: {
-          order_details: true,
+          order_details: {
+            product: true,
+          },
+          address: true,
         },
       });
       if (!order) {
@@ -283,7 +304,10 @@ export class OrdersService {
           user_id: markAsReceivedDto.user_id,
         },
         relations: {
-          order_details: true,
+          order_details: {
+            product: true,
+          },
+          address: true,
         },
       });
 
@@ -325,7 +349,10 @@ export class OrdersService {
               : findAllByEmployeeDto.status,
         },
         relations: {
-          order_details: true,
+          order_details: {
+            product: true,
+          },
+          address: true,
         },
         order: {
           created_at: 'DESC',
@@ -345,6 +372,12 @@ export class OrdersService {
       const order = await this.orderRepository.findOne({
         where: {
           id: approveOrderByEmployeeDto.order_id,
+        },
+        relations: {
+          order_details: {
+            product: true,
+          },
+          address: true,
         },
       });
 
@@ -376,6 +409,12 @@ export class OrdersService {
       const order = await this.orderRepository.findOne({
         where: {
           id: rejectOrderByEmployeeDto.order_id,
+        },
+        relations: {
+          order_details: {
+            product: true,
+          },
+          address: true,
         },
       });
 
@@ -412,7 +451,10 @@ export class OrdersService {
           id: startShipmentByEmployeeDto.order_id,
         },
         relations: {
-          order_details: true,
+          order_details: {
+            product: true,
+          },
+          address: true,
         },
       });
 
@@ -447,7 +489,10 @@ export class OrdersService {
           }),
         },
         relations: {
-          order_details: true,
+          order_details: {
+            product: true,
+          },
+          address: true,
         },
         order: {
           created_at: 'DESC',
@@ -471,7 +516,10 @@ export class OrdersService {
           id: startShipmentByShipperDto.order_id,
         },
         relations: {
-          order_details: true,
+          order_details: {
+            product: true,
+          },
+          address: true,
         },
       });
 
@@ -505,7 +553,10 @@ export class OrdersService {
           id: completeOrderByShipperDto.order_id,
         },
         relations: {
-          order_details: true,
+          order_details: {
+            product: true,
+          },
+          address: true,
         },
       });
 
@@ -536,7 +587,10 @@ export class OrdersService {
           id: cancelOrderByShipperDto.order_id,
         },
         relations: {
-          order_details: true,
+          order_details: {
+            product: true,
+          },
+          address: true,
         },
       });
 
@@ -567,6 +621,12 @@ export class OrdersService {
         id: commentOrderDto.order_id,
         user_id: commentOrderDto.user_id,
       },
+      relations: {
+        order_details: {
+          product: true,
+        },
+        address: true,
+      },
     });
     if (!order) {
       throw new RpcException('Order not found');
@@ -589,7 +649,17 @@ export class OrdersService {
 
   async updateOrderToPackaged(id: string) {
     try {
-      const order = await this.orderRepository.findOneBy({ id });
+      const order = await this.orderRepository.findOne({
+        where: {
+          id,
+        },
+        relations: {
+          order_details: {
+            product: true,
+          },
+          address: true,
+        },
+      });
       if (!order) {
         throw new RpcException(`Cannot find order with id(${id})`);
       }
@@ -606,7 +676,18 @@ export class OrdersService {
 
   async updateOrderToCancelled(id: string) {
     try {
-      const order = await this.orderRepository.findOneBy({ id });
+      const order = await this.orderRepository.findOne({
+        where: {
+          id,
+        },
+        relations: {
+          order_details: {
+            product: true,
+          },
+          address: true,
+        },
+      });
+
       if (!order) {
         throw new RpcException(`Cannot find order with id(${id})`);
       }
