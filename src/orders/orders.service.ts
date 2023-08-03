@@ -33,6 +33,9 @@ export class OrdersService {
     @Inject('CART_SERVICE')
     private readonly cartClient: ClientKafka,
 
+    @Inject('RATE_SERVICE')
+    private readonly rateClient: ClientKafka,
+
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
   ) {}
@@ -43,6 +46,8 @@ export class OrdersService {
       const order = this.orderRepository.create({
         ...createOrderDto,
       });
+
+      console.log('newOrder', order);
 
       await this.orderRepository.save(order);
 
@@ -61,6 +66,7 @@ export class OrdersService {
   }
 
   async findAll(findAllOrderDto: FindAllOrderDto) {
+    console.log('findAllOrderDto', findAllOrderDto);
     try {
       const { user_id, status } = findAllOrderDto;
 
@@ -297,17 +303,13 @@ export class OrdersService {
   }
 
   async markAsReceived(markAsReceivedDto: MarkAsReceivedDto) {
+    console.log(markAsReceivedDto);
+
     try {
       const order = await this.orderRepository.findOne({
         where: {
           id: markAsReceivedDto.order_id,
           user_id: markAsReceivedDto.user_id,
-        },
-        relations: {
-          order_details: {
-            product: true,
-          },
-          address: true,
         },
       });
 
@@ -368,16 +370,11 @@ export class OrdersService {
   async approveOrderByEmployee(
     approveOrderByEmployeeDto: ApproveOrderByEmployeeDto,
   ) {
+    console.log('approveOrderByEmployeeDto', approveOrderByEmployeeDto);
     try {
       const order = await this.orderRepository.findOne({
         where: {
           id: approveOrderByEmployeeDto.order_id,
-        },
-        relations: {
-          order_details: {
-            product: true,
-          },
-          address: true,
         },
       });
 
@@ -392,6 +389,8 @@ export class OrdersService {
       order.status = OrderStatus.Approved;
       order.approved_date = new Date();
       order.approved_by = approveOrderByEmployeeDto.phone;
+
+      console.log('order', order);
 
       await this.orderRepository.save(order);
 
@@ -410,12 +409,6 @@ export class OrdersService {
         where: {
           id: rejectOrderByEmployeeDto.order_id,
         },
-        relations: {
-          order_details: {
-            product: true,
-          },
-          address: true,
-        },
       });
 
       if (!order) {
@@ -433,6 +426,8 @@ export class OrdersService {
       order.cancelled_date = new Date();
       order.cancelled_by = rejectOrderByEmployeeDto.phone;
 
+      console.log(order);
+
       await this.orderRepository.save(order);
 
       return instanceToPlain(order);
@@ -449,12 +444,6 @@ export class OrdersService {
       const order = await this.orderRepository.findOne({
         where: {
           id: startShipmentByEmployeeDto.order_id,
-        },
-        relations: {
-          order_details: {
-            product: true,
-          },
-          address: true,
         },
       });
 
@@ -515,12 +504,6 @@ export class OrdersService {
         where: {
           id: startShipmentByShipperDto.order_id,
         },
-        relations: {
-          order_details: {
-            product: true,
-          },
-          address: true,
-        },
       });
 
       if (!order) {
@@ -547,16 +530,11 @@ export class OrdersService {
   async completeOrderByShipper(
     completeOrderByShipperDto: CompleteOrderByShipperDto,
   ) {
+    console.log('completeOrderByShipperDto', completeOrderByShipperDto);
     try {
       const order = await this.orderRepository.findOne({
         where: {
           id: completeOrderByShipperDto.order_id,
-        },
-        relations: {
-          order_details: {
-            product: true,
-          },
-          address: true,
         },
       });
 
@@ -581,16 +559,12 @@ export class OrdersService {
   }
 
   async cancelOrderByShipper(cancelOrderByShipperDto: CancelOrderByShipperDto) {
+    console.log('cancelOrderByShipperDto', cancelOrderByShipperDto);
+
     try {
       const order = await this.orderRepository.findOne({
         where: {
           id: cancelOrderByShipperDto.order_id,
-        },
-        relations: {
-          order_details: {
-            product: true,
-          },
-          address: true,
         },
       });
 
@@ -619,13 +593,6 @@ export class OrdersService {
     const order = await this.orderRepository.findOne({
       where: {
         id: commentOrderDto.order_id,
-        user_id: commentOrderDto.user_id,
-      },
-      relations: {
-        order_details: {
-          product: true,
-        },
-        address: true,
       },
     });
     if (!order) {
@@ -640,6 +607,8 @@ export class OrdersService {
       order.rating_date = new Date();
       await this.orderRepository.save(order);
 
+      this.rateClient.emit('rates.rated', { ...commentOrderDto });
+
       return instanceToPlain(order);
     } catch (error) {
       console.error(error);
@@ -652,12 +621,6 @@ export class OrdersService {
       const order = await this.orderRepository.findOne({
         where: {
           id,
-        },
-        relations: {
-          order_details: {
-            product: true,
-          },
-          address: true,
         },
       });
       if (!order) {
@@ -679,12 +642,6 @@ export class OrdersService {
       const order = await this.orderRepository.findOne({
         where: {
           id,
-        },
-        relations: {
-          order_details: {
-            product: true,
-          },
-          address: true,
         },
       });
 

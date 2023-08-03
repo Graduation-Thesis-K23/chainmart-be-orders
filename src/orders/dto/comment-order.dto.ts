@@ -9,10 +9,6 @@ import {
 
 export class CommentOrderDto {
   @IsString()
-  @IsUUID(4)
-  user_id: string;
-
-  @IsString()
   @IsNotEmpty()
   product_id: string;
 
@@ -27,4 +23,12 @@ export class CommentOrderDto {
   @IsString()
   @IsNotEmpty()
   order_id: string;
+
+  @IsString()
+  @IsNotEmpty()
+  username: string;
+
+  @IsString()
+  @IsNotEmpty()
+  images: string[];
 }

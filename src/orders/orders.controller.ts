@@ -116,14 +116,14 @@ export class OrdersController {
     return this.ordersService.completeOrderByShipper(completeOrderByShipperDto);
   }
 
-  @MessagePattern('orders.cancelorderbyshipper')
+  @MessagePattern('orders.cancellorderbyshipper')
   cancelOrderByShipper(@Payload() cancelOrderByShipperDto: any) {
     return this.ordersService.cancelOrderByShipper(cancelOrderByShipperDto);
   }
 
-  @EventPattern('orders.commented')
-  comment(commentOrderDto: any) {
-    return this.ordersService.comment(commentOrderDto);
+  @MessagePattern('orders.commented')
+  orderCommented(@Payload() cancelOrderByShipperDto: any) {
+    return this.ordersService.comment(cancelOrderByShipperDto);
   }
 
   @EventPattern('orders.packaged')

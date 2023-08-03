@@ -57,6 +57,27 @@ import { ProductModule } from '~/product/product.module';
         }),
       },
       {
+        imports: [ConfigModule],
+        inject: [ConfigService],
+        name: 'RATE_SERVICE',
+        useFactory: async (configService: ConfigService) => ({
+          transport: Transport.KAFKA,
+          options: {
+            client: {
+              clientId: 'orders-rate',
+              brokers: [
+                `${configService.get('KAFKA_HOST')}:${configService.get(
+                  'KAFKA_PORT',
+                )}`,
+              ],
+            },
+            consumer: {
+              groupId: 'rate-consumer',
+            },
+          },
+        }),
+      },
+      {
         name: 'CART_SERVICE',
         imports: [ConfigModule],
         inject: [ConfigService],

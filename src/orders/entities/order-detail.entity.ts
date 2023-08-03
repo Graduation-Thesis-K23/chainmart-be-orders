@@ -16,7 +16,7 @@ export class OrderDetail {
   product_id: string;
 
   @ManyToOne(() => Product, (product) => product.id, {
-    onDelete: 'CASCADE',
+    cascade: true,
   })
   @JoinColumn({
     referencedColumnName: 'id',
@@ -24,9 +24,7 @@ export class OrderDetail {
   })
   product: Product;
 
-  @ManyToOne(() => Order, (order) => order.id, {
-    onDelete: 'CASCADE',
-  })
+  @ManyToOne(() => Order, (order) => order.id)
   @JoinColumn({ name: 'order_id' })
   order: Order;
 
