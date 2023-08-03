@@ -10,47 +10,7 @@ import {
   IsUUID,
   ValidateNested,
 } from 'class-validator';
-import { OrderStatus, Payment } from 'src/shared';
-
-export class CreateOrderDto {
-  @IsUUID(4)
-  @IsNotEmpty()
-  user_id: string;
-
-  @IsUUID(4)
-  @IsNotEmpty()
-  address_id: string;
-
-  @IsString()
-  @IsOptional()
-  estimated_shipped_date?: string;
-
-  @IsString()
-  @IsOptional()
-  shipped_date?: string;
-
-  @IsString()
-  @IsOptional()
-  approved_date?: string;
-
-  @IsString()
-  @IsOptional()
-  return_date?: string;
-
-  @IsEnum(OrderStatus)
-  @IsOptional()
-  status?: OrderStatus;
-
-  @IsEnum(Payment)
-  @IsOptional()
-  payment?: Payment;
-
-  @IsArray()
-  @ValidateNested({ each: true })
-  @ArrayNotEmpty()
-  @Type(() => OrderDetailParam)
-  order_details: OrderDetailParam[];
-}
+import { Payment } from '~/shared';
 
 class OrderDetailParam {
   @IsString()
@@ -60,4 +20,23 @@ class OrderDetailParam {
   @IsNumber()
   @IsNotEmpty()
   quantity: number;
+}
+
+export class CreateOrderDto {
+  @IsUUID(4)
+  @IsNotEmpty()
+  address_id: string;
+
+  @IsEnum(Payment)
+  payment: Payment;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @ArrayNotEmpty()
+  @Type(() => OrderDetailParam)
+  order_details: OrderDetailParam[];
+
+  @IsString()
+  @IsOptional()
+  note?: string;
 }

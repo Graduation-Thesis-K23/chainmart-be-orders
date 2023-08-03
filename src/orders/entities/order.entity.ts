@@ -1,7 +1,7 @@
 import { Column, Entity, OneToMany } from 'typeorm';
+import { Type } from 'class-transformer';
 
 import { BaseEntity } from 'src/common/base.entity';
-
 import { OrderStatus, Payment } from 'src/shared';
 import { OrderDetail } from './order-detail.entity';
 
@@ -13,17 +13,47 @@ export class Order extends BaseEntity {
   @Column()
   address_id: string;
 
-  @Column({ type: 'date' })
-  estimated_shipped_date: string;
+  @Column({ type: 'timestamptz', nullable: true })
+  approved_date: Date;
 
-  @Column({ type: 'date', nullable: true })
-  shipped_date: string;
+  @Column({ nullable: true })
+  approved_by: string;
 
-  @Column({ type: 'date', nullable: true })
-  approved_date: string;
+  @Column({ type: 'timestamptz', nullable: true })
+  packaged_date: Date;
 
-  @Column({ type: 'date', nullable: true })
-  return_date: string;
+  @Column({ nullable: true })
+  packaged_by: string;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  started_date: Date;
+
+  @Column({ nullable: true })
+  started_by: string;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  received_date: Date;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  completed_date: Date;
+
+  @Column({ nullable: true })
+  completed_by: string;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  cancelled_date: Date;
+
+  @Column({ nullable: true })
+  cancelled_by: string;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  returned_date: Date;
+
+  @Column({ nullable: true })
+  returned_by: string;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  rating_date: Date;
 
   @Column({
     type: 'enum',
@@ -42,5 +72,6 @@ export class Order extends BaseEntity {
   @OneToMany(() => OrderDetail, (orderDetail) => orderDetail.order, {
     cascade: true,
   })
+  @Type(() => OrderDetail)
   order_details: OrderDetail[];
 }
