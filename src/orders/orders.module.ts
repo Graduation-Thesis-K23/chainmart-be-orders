@@ -7,6 +7,8 @@ import { OrdersService } from './orders.service';
 import { OrdersController } from './orders.controller';
 import { Order } from './entities/order.entity';
 import { OrderDetail } from './entities/order-detail.entity';
+import { AddressModule } from '~/address/address.module';
+import { ProductModule } from '~/product/product.module';
 
 @Module({
   imports: [
@@ -54,7 +56,32 @@ import { OrderDetail } from './entities/order-detail.entity';
           },
         }),
       },
+      {
+        name: 'CART_SERVICE',
+        imports: [ConfigModule],
+        inject: [ConfigService],
+        useFactory: async (configService) => {
+          return {
+            transport: Transport.KAFKA,
+            options: {
+              client: {
+                clientId: 'rate',
+                brokers: [
+                  `${configService.get('KAFKA_HOST')}:${configService.get(
+                    'KAFKA_PORT',
+                  )}`,
+                ],
+              },
+              consumer: {
+                groupId: 'carts-consumer',
+              },
+            },
+          };
+        },
+      },
     ]),
+    ProductModule,
+    AddressModule,
   ],
   controllers: [OrdersController],
   providers: [OrdersService],

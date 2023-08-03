@@ -31,11 +31,15 @@ export class OrdersService {
     @Inject('ORCHESTRATION_SERVICE')
     private readonly orchestrationClient: ClientKafka,
 
+    @Inject('CART_SERVICE')
+    private readonly cartClient: ClientKafka,
+
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
   ) {}
 
   async create(createOrderDto: CreateOrderDto) {
+    console.log('createOrderDto', createOrderDto);
     try {
       const order = this.orderRepository.create({
         ...createOrderDto,
@@ -47,6 +51,8 @@ export class OrdersService {
         'orchestration.orders.created',
         instanceToPlain(order),
       );
+
+      this.cartClient.emit('carts.orders.clean', createOrderDto.username);
 
       return order;
     } catch (err) {
@@ -62,7 +68,10 @@ export class OrdersService {
       if (status === 'all') {
         const orders = await this.orderRepository.find({
           relations: {
-            order_details: true,
+            order_details: {
+              product: true,
+            },
+            address: true,
           },
           where: {
             user_id,
@@ -77,7 +86,10 @@ export class OrdersService {
 
       const orders = await this.orderRepository.find({
         relations: {
-          order_details: true,
+          order_details: {
+            product: true,
+          },
+          address: true,
         },
         where: {
           user_id,

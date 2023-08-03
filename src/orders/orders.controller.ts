@@ -1,10 +1,5 @@
-import { Controller, Inject, UseFilters } from '@nestjs/common';
-import {
-  ClientKafka,
-  EventPattern,
-  MessagePattern,
-  Payload,
-} from '@nestjs/microservices';
+import { Controller, UseFilters } from '@nestjs/common';
+import { EventPattern, MessagePattern, Payload } from '@nestjs/microservices';
 
 import { OrdersService } from './orders.service';
 import { ExceptionFilter } from 'src/filters/rpc-exception.filter';

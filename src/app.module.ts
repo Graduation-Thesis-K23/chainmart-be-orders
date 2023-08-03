@@ -6,6 +6,8 @@ import { configValidationSchema } from './config/validate-env';
 import { PostgresModule } from './database/postgres.module';
 // import { RedisModule } from './database/redis.module';
 import { OrdersModule } from './orders/orders.module';
+import { AddressModule } from './address/address.module';
+import { ProductModule } from './product/product.module';
 
 @Module({
   imports: [
@@ -17,6 +19,8 @@ import { OrdersModule } from './orders/orders.module';
     PostgresModule,
     // RedisModule,
     OrdersModule,
+    AddressModule,
+    ProductModule,
   ],
   providers: [
     {

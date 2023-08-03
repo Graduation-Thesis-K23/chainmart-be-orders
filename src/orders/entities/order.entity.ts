@@ -1,9 +1,10 @@
-import { Column, Entity, OneToMany } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
 import { Type } from 'class-transformer';
 
 import { BaseEntity } from 'src/common/base.entity';
 import { OrderStatus, Payment } from 'src/shared';
 import { OrderDetail } from './order-detail.entity';
+import { Address } from '~/address/entities/address.entity';
 
 @Entity('orders')
 export class Order extends BaseEntity {
@@ -12,6 +13,15 @@ export class Order extends BaseEntity {
 
   @Column()
   address_id: string;
+
+  @ManyToOne(() => Address, (address) => address.id, {
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({
+    referencedColumnName: 'id',
+    name: 'address_id',
+  })
+  address: Address;
 
   @Column({ type: 'timestamptz', nullable: true })
   approved_date: Date;

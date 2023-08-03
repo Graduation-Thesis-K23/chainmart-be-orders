@@ -1,6 +1,7 @@
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
 
 import { Order } from './order.entity';
+import { Product } from '~/product/entities/product.entity';
 
 // Resources:
 // https://github.com/typeorm/typeorm/issues/1224
@@ -13,6 +14,15 @@ export class OrderDetail {
 
   @PrimaryColumn({ type: 'varchar', length: 24 })
   product_id: string;
+
+  @ManyToOne(() => Product, (product) => product.id, {
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({
+    referencedColumnName: 'id',
+    name: 'product_id',
+  })
+  product: Product;
 
   @ManyToOne(() => Order, (order) => order.id, {
     onDelete: 'CASCADE',

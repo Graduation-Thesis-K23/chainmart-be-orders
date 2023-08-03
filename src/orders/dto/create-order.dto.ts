@@ -27,6 +27,10 @@ export class CreateOrderDto {
   @IsNotEmpty()
   address_id: string;
 
+  @IsNotEmpty()
+  @IsString()
+  username: string;
+
   @IsEnum(Payment)
   payment: Payment;
 
