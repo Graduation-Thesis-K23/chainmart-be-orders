@@ -627,10 +627,16 @@ export class OrdersService {
         throw new RpcException(`Cannot find order with id(${id})`);
       }
 
-      return await this.orderRepository.save({
+      const newOrder = {
         ...order,
         status: OrderStatus.Packaged,
-      });
+        packaged_date: new Date(),
+        packaged_by: 'BOT',
+        approved_date: order.approved_date ? order.approved_date : new Date(),
+        approved_by: order.approved_by ? order.approved_by : 'BOT',
+      };
+
+      return await this.orderRepository.save(newOrder);
     } catch (error) {
       console.error(error);
       console.error('Cannot update order to Packaged');
@@ -652,6 +658,8 @@ export class OrdersService {
       return await this.orderRepository.save({
         ...order,
         status: OrderStatus.Cancelled,
+        cancelled_date: new Date(),
+        cancelled_by: 'BOT',
       });
     } catch (error) {
       console.error(error);
