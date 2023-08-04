@@ -389,6 +389,7 @@ export class OrdersService {
       order.status = OrderStatus.Approved;
       order.approved_date = new Date();
       order.approved_by = approveOrderByEmployeeDto.phone;
+      order.branch_id = approveOrderByEmployeeDto.branch_id;
 
       console.log('order', order);
 

@@ -8,4 +8,8 @@ export class ApproveOrderByEmployeeDto {
   @IsUUID(4)
   @IsNotEmpty()
   order_id: string;
+
+  @IsString()
+  @IsNotEmpty()
+  branch_id: string;
 }

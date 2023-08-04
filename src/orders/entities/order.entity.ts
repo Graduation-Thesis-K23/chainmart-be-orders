@@ -41,6 +41,9 @@ export class Order extends BaseEntity {
   @Column({ nullable: true })
   started_by: string;
 
+  @Column({ nullable: true })
+  branch_id: string;
+
   @Column({ type: 'timestamptz', nullable: true })
   received_date: Date;
 

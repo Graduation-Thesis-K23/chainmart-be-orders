@@ -86,7 +86,7 @@ import { ProductModule } from '~/product/product.module';
             transport: Transport.KAFKA,
             options: {
               client: {
-                clientId: 'rate',
+                clientId: 'carts-rate',
                 brokers: [
                   `${configService.get('KAFKA_HOST')}:${configService.get(
                     'KAFKA_PORT',
