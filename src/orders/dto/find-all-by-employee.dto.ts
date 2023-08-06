@@ -9,4 +9,8 @@ export class FindAllByEmployeeDto {
 
   @IsNotEmpty()
   status: OrderStatus | 'all';
+
+  @IsString()
+  @IsNotEmpty()
+  branch_id: string;
 }

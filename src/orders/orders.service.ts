@@ -334,33 +334,69 @@ export class OrdersService {
   }
 
   async findAllByEmployee(findAllByEmployeeDto: FindAllByEmployeeDto) {
+    const { status, branch_id } = findAllByEmployeeDto;
+
+    console.log(findAllByEmployeeDto);
+
     try {
-      const orders = await this.orderRepository.find({
-        where: {
-          status:
-            findAllByEmployeeDto.status === 'all'
-              ? In([
-                  OrderStatus.Created,
-                  OrderStatus.Approved,
-                  OrderStatus.Started,
-                  OrderStatus.Packaged,
-                  OrderStatus.Completed,
-                  OrderStatus.Cancelled,
-                  OrderStatus.Returned,
-                ])
-              : findAllByEmployeeDto.status,
-        },
-        relations: {
-          order_details: {
-            product: true,
+      if (status === 'all') {
+        const orders = await this.orderRepository.find({
+          where: [
+            {
+              branch_id,
+            },
+            {
+              status: OrderStatus.Created,
+            },
+          ],
+          relations: {
+            order_details: {
+              product: true,
+            },
+            address: true,
           },
-          address: true,
-        },
-        order: {
-          created_at: 'DESC',
-        },
-      });
-      return instanceToPlain(orders);
+          order: {
+            created_at: 'DESC',
+          },
+        });
+
+        return instanceToPlain(orders);
+      } else {
+        if (status === OrderStatus.Created) {
+          const orders = await this.orderRepository.find({
+            where: {
+              status,
+            },
+            relations: {
+              order_details: {
+                product: true,
+              },
+              address: true,
+            },
+            order: {
+              created_at: 'DESC',
+            },
+          });
+          return instanceToPlain(orders);
+        } else {
+          const orders = await this.orderRepository.find({
+            where: {
+              status,
+              branch_id,
+            },
+            relations: {
+              order_details: {
+                product: true,
+              },
+              address: true,
+            },
+            order: {
+              created_at: 'DESC',
+            },
+          });
+          return instanceToPlain(orders);
+        }
+      }
     } catch (error) {
       console.error(error);
       throw new RpcException('Failed to find all by employee');
@@ -405,6 +441,8 @@ export class OrdersService {
   async rejectOrderByEmployee(
     rejectOrderByEmployeeDto: RejectOrderByEmployeeDto,
   ) {
+    console.log('rejectOrderByEmployeeDto', rejectOrderByEmployeeDto);
+
     try {
       const order = await this.orderRepository.findOne({
         where: {
@@ -426,6 +464,7 @@ export class OrdersService {
       order.status = OrderStatus.Cancelled;
       order.cancelled_date = new Date();
       order.cancelled_by = rejectOrderByEmployeeDto.phone;
+      order.branch_id = rejectOrderByEmployeeDto.branch_id;
 
       console.log(order);
 
@@ -441,6 +480,8 @@ export class OrdersService {
   async startShipmentByEmployee(
     startShipmentByEmployeeDto: StartShipmentByEmployeeDto,
   ) {
+    console.log('startShipmentByEmployeeDto', startShipmentByEmployeeDto);
+
     try {
       const order = await this.orderRepository.findOne({
         where: {
@@ -460,6 +501,8 @@ export class OrdersService {
       order.packaged_date = new Date();
       order.packaged_by = startShipmentByEmployeeDto.phone;
 
+      console.log(order);
+
       await this.orderRepository.save(order);
 
       return instanceToPlain(order);
@@ -470,12 +513,17 @@ export class OrdersService {
   }
 
   async getOrdersByShipper(getOrdersByShipperDto: GetOrdersByShipperDto) {
+    console.log('getOrdersByShipperDto', getOrdersByShipperDto);
+
+    const { status, phone, branch_id } = getOrdersByShipperDto;
+
     try {
       const orders = await this.orderRepository.find({
         where: {
-          status: getOrdersByShipperDto.status,
+          status,
+          branch_id,
           ...(getOrdersByShipperDto.status !== OrderStatus.Packaged && {
-            packaged_by: getOrdersByShipperDto.phone,
+            packaged_by: phone,
           }),
         },
         relations: {
