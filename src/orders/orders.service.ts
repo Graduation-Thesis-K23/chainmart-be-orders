@@ -523,7 +523,7 @@ export class OrdersService {
           status,
           branch_id,
           ...(getOrdersByShipperDto.status !== OrderStatus.Packaged && {
-            packaged_by: phone,
+            started_by: phone,
           }),
         },
         relations: {
