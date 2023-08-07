@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ClientKafka, RpcException } from '@nestjs/microservices';
-import { In, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { instanceToPlain } from 'class-transformer';
 
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -429,7 +429,22 @@ export class OrdersService {
 
       console.log('order', order);
 
+      // should be transaction update stock
+
       await this.orderRepository.save(order);
+
+      // update stock
+      this.orchestrationClient.emit(
+        'orchestration.orders.approved_by_employee',
+        {
+          order_id: order.id,
+          order_details: order.order_details.map((order_detail) => ({
+            product_id: order_detail.product_id,
+            quantity: order_detail.quantity,
+          })),
+          branch_id: order.branch_id,
+        },
+      );
 
       return instanceToPlain(order);
     } catch (error) {
