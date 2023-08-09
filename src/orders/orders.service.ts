@@ -544,51 +544,90 @@ export class OrdersService {
     const { status, phone, branch_id } = getOrdersByShipperDto;
 
     try {
-      if (status === OrderStatus.Completed) {
-        const orders = await this.orderRepository.find({
-          where: {
-            received_date: Not(IsNull()),
-            branch_id,
-            ...(getOrdersByShipperDto.status !== OrderStatus.Packaged && {
-              started_by: phone,
-            }),
-          },
-          relations: {
-            order_details: {
-              product: true,
+      let orders: Order[];
+
+      switch (status) {
+        case OrderStatus.Packaged:
+          orders = await this.orderRepository.find({
+            where: {
+              status: OrderStatus.Packaged,
+              branch_id,
             },
-            address: true,
-          },
-          order: {
-            created_at: 'DESC',
-          },
-          skip: (getOrdersByShipperDto.page - 1) * 6,
-          take: 6,
-        });
-        return instanceToPlain(orders);
-      } else {
-        const orders = await this.orderRepository.find({
-          where: {
-            status,
-            branch_id,
-            ...(getOrdersByShipperDto.status !== OrderStatus.Packaged && {
-              started_by: phone,
-            }),
-          },
-          relations: {
-            order_details: {
-              product: true,
+            relations: {
+              order_details: {
+                product: true,
+              },
+              address: true,
             },
-            address: true,
-          },
-          order: {
-            created_at: 'DESC',
-          },
-          skip: (getOrdersByShipperDto.page - 1) * 6,
-          take: 6,
-        });
-        return instanceToPlain(orders);
+            order: {
+              packaged_date: 'DESC',
+            },
+            skip: (getOrdersByShipperDto.page - 1) * 6,
+            take: 6,
+          });
+          break;
+        case OrderStatus.Started:
+          orders = await this.orderRepository.find({
+            where: {
+              status: OrderStatus.Started,
+              branch_id,
+              received_date: null,
+            },
+            relations: {
+              order_details: {
+                product: true,
+              },
+              address: true,
+            },
+            order: {
+              started_date: 'DESC',
+            },
+            skip: (getOrdersByShipperDto.page - 1) * 6,
+            take: 6,
+          });
+          break;
+        case OrderStatus.Completed:
+          orders = await this.orderRepository.find({
+            where: {
+              completed_by: phone,
+              branch_id,
+            },
+            relations: {
+              order_details: {
+                product: true,
+              },
+              address: true,
+            },
+            order: {
+              completed_date: 'DESC',
+            },
+            skip: (getOrdersByShipperDto.page - 1) * 6,
+            take: 6,
+          });
+          break;
+        case OrderStatus.Cancelled:
+          orders = await this.orderRepository.find({
+            where: {
+              status: OrderStatus.Cancelled,
+              branch_id,
+              cancelled_by: phone,
+            },
+            relations: {
+              order_details: {
+                product: true,
+              },
+              address: true,
+            },
+            order: {
+              cancelled_date: 'DESC',
+            },
+            skip: (getOrdersByShipperDto.page - 1) * 6,
+            take: 6,
+          });
+          break;
       }
+
+      return instanceToPlain(orders);
     } catch (error) {
       console.error(error);
       throw new RpcException('Failed to get orders by shipper');
