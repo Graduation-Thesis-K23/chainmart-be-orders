@@ -412,11 +412,6 @@ export class OrdersService {
         where: {
           id: approveOrderByEmployeeDto.order_id,
         },
-        relations: {
-          order_details: {
-            product: true,
-          },
-        },
       });
 
       if (!order) {
@@ -438,12 +433,23 @@ export class OrdersService {
 
       await this.orderRepository.save(order);
 
+      const orderTemp = await this.orderRepository.findOne({
+        where: {
+          id: approveOrderByEmployeeDto.order_id,
+        },
+        relations: {
+          order_details: {
+            product: true,
+          },
+        },
+      });
+
       // update stock
       this.orchestrationClient.emit(
         'orchestration.orders.approved_by_employee',
         {
           order_id: order.id,
-          order_details: order.order_details.map((order_detail) => ({
+          order_details: orderTemp.order_details.map((order_detail) => ({
             product_id: order_detail.product_id,
             quantity: order_detail.quantity,
           })),
