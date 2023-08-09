@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ClientKafka, RpcException } from '@nestjs/microservices';
-import { Repository } from 'typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
 import { instanceToPlain } from 'class-transformer';
 
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -544,27 +544,51 @@ export class OrdersService {
     const { status, phone, branch_id } = getOrdersByShipperDto;
 
     try {
-      const orders = await this.orderRepository.find({
-        where: {
-          status,
-          branch_id,
-          ...(getOrdersByShipperDto.status !== OrderStatus.Packaged && {
-            started_by: phone,
-          }),
-        },
-        relations: {
-          order_details: {
-            product: true,
+      if (status === OrderStatus.Completed) {
+        const orders = await this.orderRepository.find({
+          where: {
+            received_date: Not(IsNull()),
+            branch_id,
+            ...(getOrdersByShipperDto.status !== OrderStatus.Packaged && {
+              started_by: phone,
+            }),
           },
-          address: true,
-        },
-        order: {
-          created_at: 'DESC',
-        },
-        skip: (getOrdersByShipperDto.page - 1) * 6,
-        take: 6,
-      });
-      return instanceToPlain(orders);
+          relations: {
+            order_details: {
+              product: true,
+            },
+            address: true,
+          },
+          order: {
+            created_at: 'DESC',
+          },
+          skip: (getOrdersByShipperDto.page - 1) * 6,
+          take: 6,
+        });
+        return instanceToPlain(orders);
+      } else {
+        const orders = await this.orderRepository.find({
+          where: {
+            status,
+            branch_id,
+            ...(getOrdersByShipperDto.status !== OrderStatus.Packaged && {
+              started_by: phone,
+            }),
+          },
+          relations: {
+            order_details: {
+              product: true,
+            },
+            address: true,
+          },
+          order: {
+            created_at: 'DESC',
+          },
+          skip: (getOrdersByShipperDto.page - 1) * 6,
+          take: 6,
+        });
+        return instanceToPlain(orders);
+      }
     } catch (error) {
       console.error(error);
       throw new RpcException('Failed to get orders by shipper');
