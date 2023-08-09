@@ -412,6 +412,11 @@ export class OrdersService {
         where: {
           id: approveOrderByEmployeeDto.order_id,
         },
+        relations: {
+          order_details: {
+            product: true,
+          },
+        },
       });
 
       if (!order) {
