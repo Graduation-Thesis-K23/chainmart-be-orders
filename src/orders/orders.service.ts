@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ClientKafka, RpcException } from '@nestjs/microservices';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { In, Repository } from 'typeorm';
+import { IsNull, Not, Repository } from 'typeorm';
 import { instanceToPlain } from 'class-transformer';
 import { Cache } from 'cache-manager';
 import * as moment from 'moment-timezone';
@@ -358,33 +358,69 @@ export class OrdersService {
   }
 
   async findAllByEmployee(findAllByEmployeeDto: FindAllByEmployeeDto) {
+    const { status, branch_id } = findAllByEmployeeDto;
+
+    console.log(findAllByEmployeeDto);
+
     try {
-      const orders = await this.orderRepository.find({
-        where: {
-          status:
-            findAllByEmployeeDto.status === 'all'
-              ? In([
-                  OrderStatus.Created,
-                  OrderStatus.Approved,
-                  OrderStatus.Started,
-                  OrderStatus.Packaged,
-                  OrderStatus.Completed,
-                  OrderStatus.Cancelled,
-                  OrderStatus.Returned,
-                ])
-              : findAllByEmployeeDto.status,
-        },
-        relations: {
-          order_details: {
-            product: true,
+      if (status === 'all') {
+        const orders = await this.orderRepository.find({
+          where: [
+            {
+              branch_id,
+            },
+            {
+              status: OrderStatus.Created,
+            },
+          ],
+          relations: {
+            order_details: {
+              product: true,
+            },
+            address: true,
           },
-          address: true,
-        },
-        order: {
-          created_at: 'DESC',
-        },
-      });
-      return instanceToPlain(orders);
+          order: {
+            created_at: 'DESC',
+          },
+        });
+
+        return instanceToPlain(orders);
+      } else {
+        if (status === OrderStatus.Created) {
+          const orders = await this.orderRepository.find({
+            where: {
+              status,
+            },
+            relations: {
+              order_details: {
+                product: true,
+              },
+              address: true,
+            },
+            order: {
+              created_at: 'DESC',
+            },
+          });
+          return instanceToPlain(orders);
+        } else {
+          const orders = await this.orderRepository.find({
+            where: {
+              status,
+              branch_id,
+            },
+            relations: {
+              order_details: {
+                product: true,
+              },
+              address: true,
+            },
+            order: {
+              created_at: 'DESC',
+            },
+          });
+          return instanceToPlain(orders);
+        }
+      }
     } catch (error) {
       console.error(error);
       throw new RpcException('Failed to find all by employee');
@@ -417,7 +453,33 @@ export class OrdersService {
 
       console.log('order', order);
 
+      // should be transaction update stock
+
       await this.orderRepository.save(order);
+
+      const orderTemp = await this.orderRepository.findOne({
+        where: {
+          id: approveOrderByEmployeeDto.order_id,
+        },
+        relations: {
+          order_details: {
+            product: true,
+          },
+        },
+      });
+
+      // update stock
+      this.orchestrationClient.emit(
+        'orchestration.orders.approved_by_employee',
+        {
+          order_id: order.id,
+          order_details: orderTemp.order_details.map((order_detail) => ({
+            product_id: order_detail.product_id,
+            quantity: order_detail.quantity,
+          })),
+          branch_id: order.branch_id,
+        },
+      );
 
       return instanceToPlain(order);
     } catch (error) {
@@ -429,6 +491,8 @@ export class OrdersService {
   async rejectOrderByEmployee(
     rejectOrderByEmployeeDto: RejectOrderByEmployeeDto,
   ) {
+    console.log('rejectOrderByEmployeeDto', rejectOrderByEmployeeDto);
+
     try {
       const order = await this.orderRepository.findOne({
         where: {
@@ -450,6 +514,7 @@ export class OrdersService {
       order.status = OrderStatus.Cancelled;
       order.cancelled_date = new Date();
       order.cancelled_by = rejectOrderByEmployeeDto.phone;
+      order.branch_id = rejectOrderByEmployeeDto.branch_id;
 
       console.log(order);
 
@@ -465,6 +530,8 @@ export class OrdersService {
   async startShipmentByEmployee(
     startShipmentByEmployeeDto: StartShipmentByEmployeeDto,
   ) {
+    console.log('startShipmentByEmployeeDto', startShipmentByEmployeeDto);
+
     try {
       const order = await this.orderRepository.findOne({
         where: {
@@ -484,6 +551,8 @@ export class OrdersService {
       order.packaged_date = new Date();
       order.packaged_by = startShipmentByEmployeeDto.phone;
 
+      console.log(order);
+
       await this.orderRepository.save(order);
 
       return instanceToPlain(order);
@@ -494,26 +563,94 @@ export class OrdersService {
   }
 
   async getOrdersByShipper(getOrdersByShipperDto: GetOrdersByShipperDto) {
+    console.log('getOrdersByShipperDto', getOrdersByShipperDto);
+
+    const { status, phone, branch_id } = getOrdersByShipperDto;
+
     try {
-      const orders = await this.orderRepository.find({
-        where: {
-          status: getOrdersByShipperDto.status,
-          ...(getOrdersByShipperDto.status !== OrderStatus.Packaged && {
-            packaged_by: getOrdersByShipperDto.phone,
-          }),
-        },
-        relations: {
-          order_details: {
-            product: true,
-          },
-          address: true,
-        },
-        order: {
-          created_at: 'DESC',
-        },
-        skip: (getOrdersByShipperDto.page - 1) * 6,
-        take: 6,
-      });
+      let orders: Order[];
+
+      switch (status) {
+        case OrderStatus.Packaged:
+          orders = await this.orderRepository.find({
+            where: {
+              status: OrderStatus.Packaged,
+              branch_id,
+            },
+            relations: {
+              order_details: {
+                product: true,
+              },
+              address: true,
+            },
+            order: {
+              packaged_date: 'DESC',
+            },
+            skip: (getOrdersByShipperDto.page - 1) * 6,
+            take: 6,
+          });
+          break;
+        case OrderStatus.Started:
+          orders = await this.orderRepository.find({
+            where: {
+              status: OrderStatus.Started,
+              branch_id,
+              received_date: null,
+            },
+            relations: {
+              order_details: {
+                product: true,
+              },
+              address: true,
+            },
+            order: {
+              started_date: 'DESC',
+            },
+            skip: (getOrdersByShipperDto.page - 1) * 6,
+            take: 6,
+          });
+          break;
+        case OrderStatus.Completed:
+          orders = await this.orderRepository.find({
+            where: {
+              completed_by: phone,
+              branch_id,
+            },
+            relations: {
+              order_details: {
+                product: true,
+              },
+              address: true,
+            },
+            order: {
+              completed_date: 'DESC',
+            },
+            skip: (getOrdersByShipperDto.page - 1) * 6,
+            take: 6,
+          });
+          break;
+        case OrderStatus.Cancelled:
+          orders = await this.orderRepository.find({
+            where: {
+              status: OrderStatus.Cancelled,
+              branch_id,
+              cancelled_by: phone,
+            },
+            relations: {
+              order_details: {
+                product: true,
+              },
+              address: true,
+            },
+            order: {
+              cancelled_date: 'DESC',
+            },
+            skip: (getOrdersByShipperDto.page - 1) * 6,
+            take: 6,
+          });
+          break;
+      }
+
       return instanceToPlain(orders);
     } catch (error) {
       console.error(error);

@@ -16,4 +16,8 @@ export class GetOrderByShipperDto {
   @IsNumber()
   @IsNotEmpty()
   page: number;
+
+  @IsString()
+  @IsNotEmpty()
+  branch_id: string;
 }
