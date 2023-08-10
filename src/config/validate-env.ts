@@ -9,4 +9,7 @@ export const configValidationSchema = Joi.object({
 
   KAFKA_HOST: Joi.string().required(),
   KAFKA_PORT: Joi.number().required(),
+
+  REDIS_HOST: Joi.string().required(),
+  REDIS_PORT: Joi.number().required(),
 });

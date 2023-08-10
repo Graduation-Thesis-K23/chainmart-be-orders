@@ -9,9 +9,13 @@ export class AddressService {
   @InjectRepository(Address)
   private readonly addressRepository: Repository<Address>;
 
-  create(createAddressDto: CreateAddressDto) {
-    console.log('orders.address.created', createAddressDto);
-    const newAddress = this.addressRepository.create(createAddressDto);
-    return this.addressRepository.save(newAddress);
+  async create(createAddressDto: CreateAddressDto) {
+    try {
+      const newAddress = this.addressRepository.create(createAddressDto);
+      await this.addressRepository.save(newAddress);
+      console.log('new address', newAddress);
+    } catch (error) {
+      console.error(error);
+    }
   }
 }
