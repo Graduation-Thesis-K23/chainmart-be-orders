@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ClientKafka, RpcException } from '@nestjs/microservices';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { instanceToPlain } from 'class-transformer';
 import { Cache } from 'cache-manager';
 import * as moment from 'moment-timezone';
@@ -43,6 +43,8 @@ export class OrdersService {
 
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
+
+    private readonly dataSource: DataSource,
 
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
@@ -891,6 +893,7 @@ export class OrdersService {
 
   // dashboard
   async getNumberOrdersPerDay(dashboardDto: DashboardDto) {
+    console.log('getNumberOrdersPerDay', dashboardDto);
     /* 
       SELECT COUNT(id) as value, to_char(created_at, 'yyyy-mm-dd') as label
       FROM public.orders
@@ -902,19 +905,22 @@ export class OrdersService {
     const { startDate, endDate, branch } = dashboardDto;
 
     try {
-      return await this.orderRepository
+      const rawData = await this.orderRepository
         .createQueryBuilder('order')
-        .select('COUNT(order.id)', 'value')
-        .addSelect("to_char(order.created_at, 'yyyy-mm-dd')", 'label')
-        .where('order.created_at >= :startDate', { startDate })
-        .andWhere('order.created_at <= :endDate', { endDate })
-        .andWhere(branch !== 'all' ? 'order.branch = :branch' : '1=1', {
-          branch,
-        })
+        .select('COUNT(id)', 'value')
+        .addSelect("to_char(created_at, 'yyyy-mm-dd')", 'label')
+        .where('created_at >= :startDate', { startDate })
+        .andWhere('created_at <= :endDate', { endDate })
+        .andWhere(branch !== 'all' ? 'branch_id = :branch' : '1=1', { branch })
         .groupBy('label')
         .orderBy('label', 'ASC')
-        .limit(30)
         .getRawMany();
+
+      console.log('rawData', rawData);
+      // print query
+      // console.log('query', query.getQuery());
+
+      return rawData;
     } catch (error) {
       console.error(error);
       throw new RpcException('Cannot get number orders per day');
@@ -922,6 +928,7 @@ export class OrdersService {
   }
 
   async getRevenuePerDay(dashboardDto: DashboardDto) {
+    console.log('getRevenuePerDay', dashboardDto);
     /*
     SELECT to_char(created_at, 'yyyy-mm-dd') as label, SUM(order_details.quantity * products.price) as value
   FROM orders
@@ -935,22 +942,22 @@ export class OrdersService {
     const { startDate, endDate, branch } = dashboardDto;
 
     try {
-      const rawData = await this.orderRepository
-        .createQueryBuilder('order')
-        .select("to_char(order.created_at, 'yyyy-mm-dd')", 'label')
-        .addSelect('SUM(order_details.quantity * products.price)', 'value')
-        .leftJoin('order.order_details', 'order_details.order_id')
-        .leftJoin('order_details.product_id', 'products')
-        .where('order.created_at >= :startDate', { startDate })
-        .andWhere('order.created_at <= :endDate', { endDate })
-        // branch == "all" -> get all branch
-        .andWhere(branch !== 'all' ? 'order.branch = :branch' : '1=1', {
-          branch,
-        })
-        .groupBy('label')
-        .orderBy('label', 'ASC')
-        .limit(30)
-        .getRawMany();
+      const rawData = await this.dataSource.query(
+        `
+        SELECT to_char(created_at, 'yyyy-mm-dd') as label, SUM(order_details.quantity * products.price) as value
+        FROM orders
+        LEFT JOIN order_details
+        ON "orders".id="order_details"."order_id"
+        LEFT JOIN products
+        ON "order_details".product_id=products.id
+        WHERE created_at >= '${startDate}' AND created_at <= '${endDate}'
+        ${branch !== 'all' ? `AND branch_id = '${branch}'` : ''}
+        GROUP BY label
+        ORDER BY label ASC;
+      `,
+      );
+
+      console.log('getRevenuePerDay', rawData);
 
       return rawData;
     } catch (error) {
@@ -959,6 +966,7 @@ export class OrdersService {
     }
   }
   async getHotSellingProduct(dashboardDto: DashboardDto) {
+    console.log('getHotSellingProduct', dashboardDto);
     /*
     SELECT name as label, sum(quantity) as value
     FROM orders
@@ -974,21 +982,20 @@ export class OrdersService {
     const { startDate, endDate, branch } = dashboardDto;
 
     try {
-      const rawData = await this.orderRepository
-        .createQueryBuilder('order')
-        .select('products.name', 'label')
-        .addSelect('SUM(order_details.quantity)', 'value')
-        .leftJoin('order.order_details', 'order_details.order_id')
-        .leftJoin('order_details.product_id', 'products')
-        .where('order.created_at >= :startDate', { startDate })
-        .andWhere('order.created_at <= :endDate', { endDate })
-        .andWhere(branch !== 'all' ? 'order.branch = :branch' : '1=1', {
-          branch,
-        })
-        .groupBy('label')
-        .orderBy('value', 'DESC')
-        .limit(30)
-        .getRawMany();
+      const rawData = await this.dataSource.query(
+        `
+        SELECT name as label, sum(quantity) as value
+        FROM orders
+        LEFT JOIN order_details
+        ON "orders".id="order_details"."order_id"
+        LEFT JOIN products
+        ON "products".id="order_details"."product_id"
+        WHERE created_at >= '${startDate}' AND created_at <= '${endDate}'
+        ${branch !== 'all' ? `AND branch_id = '${branch}'` : ''}
+        GROUP by name
+        ORDER BY value desc
+      `,
+      );
 
       return rawData;
     } catch (error) {
