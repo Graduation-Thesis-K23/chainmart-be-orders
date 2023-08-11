@@ -35,6 +35,8 @@
     "joi": "^17.9.2",
     "kafkajs": "^2.2.4",
     "moment": "^2.29.4",
+    "moment-timezone": "^0.5.43",
+    "nanoid": "3.3.6",
     "pg": "^8.11.1",
     "redis": "^4.6.7",
     "reflect-metadata": "^0.1.13",

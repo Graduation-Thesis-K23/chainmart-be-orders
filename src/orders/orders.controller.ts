@@ -136,6 +136,21 @@ export class OrdersController {
     this.ordersService.updateOrderToCancelled(id);
   }
 
+  @MessagePattern('orders.findbankingorderbyuserid')
+  findBankingOrderByUserId(@Payload() user_id: string) {
+    return this.ordersService.findBankingOrderByUserId(user_id);
+  }
+
+  @EventPattern('orders.makepayment')
+  makePayment(@Payload() user_id: string) {
+    return this.ordersService.makePayment(user_id);
+  }
+
+  @EventPattern('orders.cancelbankingorderbyid')
+  cancelBankingOrderById(id: string) {
+    return this.ordersService.updateOrderToCancelled(id);
+  }
+
   // dashboard
   @MessagePattern('orders.getnumberordersperday')
   getNumberOrdersPerDay(@Payload() dashboardDto: DashboardDto) {

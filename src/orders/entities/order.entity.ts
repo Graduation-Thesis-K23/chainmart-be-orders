@@ -2,7 +2,7 @@ import { Column, Entity, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
 import { Type } from 'class-transformer';
 
 import { BaseEntity } from 'src/common/base.entity';
-import { OrderStatus, Payment } from 'src/shared';
+import { OrderStatus, Payment, PaymentStatus } from 'src/shared';
 import { OrderDetail } from './order-detail.entity';
 import { Address } from '~/address/entities/address.entity';
 
@@ -24,49 +24,49 @@ export class Order extends BaseEntity {
   address: Address;
 
   @Column({ type: 'timestamptz', nullable: true })
-  approved_date: Date;
+  approved_date?: Date;
 
   @Column({ nullable: true })
-  approved_by: string;
+  approved_by?: string;
 
   @Column({ type: 'timestamptz', nullable: true })
-  packaged_date: Date;
+  packaged_date?: Date;
 
   @Column({ nullable: true })
-  packaged_by: string;
+  packaged_by?: string;
 
   @Column({ type: 'timestamptz', nullable: true })
-  started_date: Date;
+  started_date?: Date;
 
   @Column({ nullable: true })
-  started_by: string;
+  started_by?: string;
 
   @Column({ nullable: true })
-  branch_id: string;
+  branch_id?: string;
 
   @Column({ type: 'timestamptz', nullable: true })
-  received_date: Date;
+  received_date?: Date;
 
   @Column({ type: 'timestamptz', nullable: true })
-  completed_date: Date;
+  completed_date?: Date;
 
   @Column({ nullable: true })
-  completed_by: string;
+  completed_by?: string;
 
   @Column({ type: 'timestamptz', nullable: true })
-  cancelled_date: Date;
+  cancelled_date?: Date;
 
   @Column({ nullable: true })
-  cancelled_by: string;
+  cancelled_by?: string;
 
   @Column({ type: 'timestamptz', nullable: true })
-  returned_date: Date;
+  returned_date?: Date;
 
   @Column({ nullable: true })
-  returned_by: string;
+  returned_by?: string;
 
   @Column({ type: 'timestamptz', nullable: true })
-  rating_date: Date;
+  rating_date?: Date;
 
   @Column({
     type: 'enum',
@@ -87,4 +87,20 @@ export class Order extends BaseEntity {
   })
   @Type(() => OrderDetail)
   order_details: OrderDetail[];
+
+  @Column({
+    nullable: true,
+  })
+  banking_token?: string;
+
+  @Column({
+    nullable: true,
+  })
+  payment_status?: PaymentStatus;
+
+  @Column({
+    type: 'timestamptz',
+    nullable: true,
+  })
+  expiration_timestamp?: Date;
 }

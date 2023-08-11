@@ -1,13 +1,16 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ClientKafka, RpcException } from '@nestjs/microservices';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { IsNull, Not, Repository } from 'typeorm';
 import { instanceToPlain } from 'class-transformer';
+import { Cache } from 'cache-manager';
+import * as moment from 'moment-timezone';
 
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { Order } from './entities/order.entity';
-import { OrderStatus } from '~/shared';
+import { OrderStatus, Payment, PaymentStatus } from '~/shared';
 import { CancelOrderDto } from './dto/cancel-order.dto';
 import { FindAllOrderDto } from './dto/find-all-order.dto';
 import { CommentOrderDto } from './dto/comment-order.dto';
@@ -26,6 +29,8 @@ import { DashboardDto } from './dto/dashboard.to';
 
 @Injectable()
 export class OrdersService {
+  private readonly ORDER_DURATION = 3 * 60 * 1000; // 3 minutes
+
   constructor(
     @Inject('ORCHESTRATION_SERVICE')
     private readonly orchestrationClient: ClientKafka,
@@ -38,6 +43,8 @@ export class OrdersService {
 
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
+
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
   async create(createOrderDto: CreateOrderDto) {
@@ -47,14 +54,34 @@ export class OrdersService {
         ...createOrderDto,
       });
 
-      console.log('newOrder', order);
+      console.log('New order', order);
+
+      if (createOrderDto.payment === Payment.Banking) {
+        // Check if the previous banking has been paid or time out
+        const previousBankingOrder = await this.cacheManager.get(
+          createOrderDto.user_id,
+        );
+        if (previousBankingOrder) {
+          throw new RpcException('Please finish the previous order first');
+        }
+
+        order.payment_status = PaymentStatus.Unpaid;
+        order.expiration_timestamp = moment()
+          .tz('Asia/Ho_Chi_Minh')
+          .add(this.ORDER_DURATION, 'ms')
+          .toDate();
+        console.log('Banking order', order);
+      }
 
       await this.orderRepository.save(order);
 
-      this.orchestrationClient.emit(
-        'orchestration.orders.created',
-        instanceToPlain(order),
-      );
+      if (createOrderDto.payment === Payment.Banking) {
+        await this.cacheManager.set(
+          createOrderDto.user_id,
+          instanceToPlain(order),
+          this.ORDER_DURATION,
+        ); // 3 minutes
+      }
 
       this.cartClient.emit('carts.orders.clean', createOrderDto.username);
 
@@ -68,25 +95,12 @@ export class OrdersService {
   async findAll(findAllOrderDto: FindAllOrderDto) {
     console.log('findAllOrderDto', findAllOrderDto);
     try {
-      const { user_id, status } = findAllOrderDto;
+      const whereClause: Record<string, any> = {
+        user_id: findAllOrderDto.user_id,
+      };
 
-      if (status === 'all') {
-        const orders = await this.orderRepository.find({
-          relations: {
-            order_details: {
-              product: true,
-            },
-            address: true,
-          },
-          where: {
-            user_id,
-          },
-          order: {
-            created_at: 'DESC',
-          },
-        });
-
-        return instanceToPlain(orders);
+      if (findAllOrderDto.status !== 'all') {
+        whereClause.status = findAllOrderDto.status;
       }
 
       const orders = await this.orderRepository.find({
@@ -96,14 +110,24 @@ export class OrdersService {
           },
           address: true,
         },
-        where: {
-          user_id,
-          status,
-        },
+        where: whereClause,
         order: {
           created_at: 'DESC',
         },
       });
+
+      // Check if order needs to be cancelled
+      for (const order of orders) {
+        if (order.payment === Payment.Banking) {
+          const tenMinutes = Date.now() + this.ORDER_DURATION;
+          // 10 minutes passed
+          if (order.created_at.getTime() > tenMinutes) {
+            order.status = OrderStatus.Cancelled;
+            await this.orderRepository.save(order);
+            break; // only 1 order being processing at a time
+          }
+        }
+      }
 
       return instanceToPlain(orders);
     } catch (error) {
@@ -765,16 +789,16 @@ export class OrdersService {
         throw new RpcException(`Cannot find order with id(${id})`);
       }
 
-      const newOrder = {
+      const approvedOrder = await this.orderRepository.save({
         ...order,
-        status: OrderStatus.Packaged,
-        packaged_date: new Date(),
-        packaged_by: 'BOT',
+        status: OrderStatus.Approved,
         approved_date: order.approved_date ? order.approved_date : new Date(),
         approved_by: order.approved_by ? order.approved_by : 'BOT',
-      };
+        payment_status:
+          order.payment === Payment.Banking ? PaymentStatus.Paid : null,
+      });
 
-      return await this.orderRepository.save(newOrder);
+      return approvedOrder;
     } catch (error) {
       console.error(error);
       console.error('Cannot update order to Packaged');
@@ -793,15 +817,75 @@ export class OrdersService {
         throw new RpcException(`Cannot find order with id(${id})`);
       }
 
-      return await this.orderRepository.save({
+      const cancelledOrder = await this.orderRepository.save({
         ...order,
         status: OrderStatus.Cancelled,
         cancelled_date: new Date(),
         cancelled_by: 'BOT',
+        // Mark as FAILED if order has been PROCESSING, else keeps UNPAID
+        payment_status:
+          order.payment === Payment.Banking &&
+          order.payment_status === PaymentStatus.Processing
+            ? PaymentStatus.Failed
+            : null,
       });
+
+      console.log('Cancelled Order', cancelledOrder);
+
+      return cancelledOrder;
     } catch (error) {
       console.error(error);
       console.error('Cannot update order to Cancelled');
+    }
+  }
+
+  async findBankingOrderByUserId(user_id: string) {
+    try {
+      const orderCached = await this.cacheManager.get(user_id);
+      console.log('Order cached', orderCached);
+      if (orderCached) {
+        return orderCached;
+      }
+
+      const orderInDb = await this.orderRepository.findOne({
+        where: {
+          user_id,
+          status: OrderStatus.Created,
+          payment: Payment.Banking,
+        },
+      });
+
+      if (!orderInDb) {
+        console.log('No banking order found');
+        throw new RpcException('No banking order available');
+      }
+
+      const updatedOrderInDb = await this.updateOrderToCancelled(orderInDb.id);
+
+      return updatedOrderInDb;
+    } catch (error) {
+      console.error(error);
+      throw new RpcException('Cannot to find banking order by user id');
+    }
+  }
+
+  async makePayment(user_id: string) {
+    try {
+      const orderCached: Order = await this.cacheManager.get(user_id);
+      console.log('Payment - Order cached', orderCached);
+      if (!orderCached) {
+        throw new RpcException('There is no order available');
+      }
+
+      await this.orderRepository.save({
+        ...orderCached,
+        payment_status: PaymentStatus.Processing,
+      });
+
+      this.orchestrationClient.emit('orchestration.orders.paid', orderCached);
+    } catch (error) {
+      console.error(error);
+      throw new RpcException('Cannot make payment');
     }
   }
 

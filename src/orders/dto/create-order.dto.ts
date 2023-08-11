@@ -25,6 +25,10 @@ class OrderDetailParam {
 export class CreateOrderDto {
   @IsUUID(4)
   @IsNotEmpty()
+  user_id: string;
+
+  @IsUUID(4)
+  @IsNotEmpty()
   address_id: string;
 
   @IsNotEmpty()

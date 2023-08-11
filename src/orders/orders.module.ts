@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { CacheModule } from '@nestjs/cache-manager';
 
 import { OrdersService } from './orders.service';
 import { OrdersController } from './orders.controller';
@@ -13,6 +14,7 @@ import { ProductModule } from '~/product/product.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Order, OrderDetail]),
+    CacheModule.register(),
     ClientsModule.registerAsync([
       /* {
         imports: [ConfigModule],
