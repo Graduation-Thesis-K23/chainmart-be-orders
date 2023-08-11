@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ClientKafka, RpcException } from '@nestjs/microservices';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { IsNull, Not, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { instanceToPlain } from 'class-transformer';
 import { Cache } from 'cache-manager';
 import * as moment from 'moment-timezone';
@@ -899,7 +899,7 @@ export class OrdersService {
       ORDER BY label ASC;
     */
 
-    const { startDate, endDate } = dashboardDto;
+    const { startDate, endDate, branch } = dashboardDto;
 
     try {
       return await this.orderRepository
@@ -908,6 +908,9 @@ export class OrdersService {
         .addSelect("to_char(order.created_at, 'yyyy-mm-dd')", 'label')
         .where('order.created_at >= :startDate', { startDate })
         .andWhere('order.created_at <= :endDate', { endDate })
+        .andWhere(branch !== 'all' ? 'order.branch = :branch' : '1=1', {
+          branch,
+        })
         .groupBy('label')
         .orderBy('label', 'ASC')
         .limit(30)
@@ -929,7 +932,7 @@ export class OrdersService {
 	WHERE created_at >= '2023-01-01 00:00:00' AND created_at <= '2023-08-29 23:59:59'
 	GROUP BY label
     */
-    const { startDate, endDate } = dashboardDto;
+    const { startDate, endDate, branch } = dashboardDto;
 
     try {
       const rawData = await this.orderRepository
@@ -940,6 +943,10 @@ export class OrdersService {
         .leftJoin('order_details.product_id', 'products')
         .where('order.created_at >= :startDate', { startDate })
         .andWhere('order.created_at <= :endDate', { endDate })
+        // branch == "all" -> get all branch
+        .andWhere(branch !== 'all' ? 'order.branch = :branch' : '1=1', {
+          branch,
+        })
         .groupBy('label')
         .orderBy('label', 'ASC')
         .limit(30)
@@ -964,7 +971,7 @@ export class OrdersService {
     ORDER BY value desc
     */
 
-    const { startDate, endDate } = dashboardDto;
+    const { startDate, endDate, branch } = dashboardDto;
 
     try {
       const rawData = await this.orderRepository
@@ -975,6 +982,9 @@ export class OrdersService {
         .leftJoin('order_details.product_id', 'products')
         .where('order.created_at >= :startDate', { startDate })
         .andWhere('order.created_at <= :endDate', { endDate })
+        .andWhere(branch !== 'all' ? 'order.branch = :branch' : '1=1', {
+          branch,
+        })
         .groupBy('label')
         .orderBy('value', 'DESC')
         .limit(30)
