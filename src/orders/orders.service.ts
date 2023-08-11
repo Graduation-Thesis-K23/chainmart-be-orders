@@ -836,26 +836,28 @@ export class OrdersService {
 
   async getRevenuePerDay(dashboardDto: DashboardDto) {
     /*
-    SELECT to_char(created_at, 'yyyy-mm-dd') as created, order_details.product_id, SUM(order_details.quantity) as total 
-    FROM public.orders
-    LEFT JOIN public.order_details
-    ON "orders".id="order_details"."order_id"
-    WHERE created_at >= '2023-01-01 00:00:00' AND created_at <= '2023-08-29 23:59:59'
-    GROUP BY created, order_details.product_id
+    SELECT to_char(created_at, 'yyyy-mm-dd') as label, SUM(order_details.quantity * products.price) as value
+  FROM orders
+	LEFT JOIN order_details
+	ON "orders".id="order_details"."order_id"
+	LEFT JOIN products
+	ON "order_details".product_id=products.id
+	WHERE created_at >= '2023-01-01 00:00:00' AND created_at <= '2023-08-29 23:59:59'
+	GROUP BY label
     */
     const { startDate, endDate } = dashboardDto;
 
     try {
       const rawData = await this.orderRepository
         .createQueryBuilder('order')
-        .select('order_details.product_id', 'product_id')
-        .addSelect('SUM(order_details.quantity)', 'value')
-        .addSelect("to_char(order.created_at, 'yyyy-mm-dd')", 'label')
-        .leftJoin('order.order_details', 'order_details')
+        .select("to_char(order.created_at, 'yyyy-mm-dd')", 'label')
+        .addSelect('SUM(order_details.quantity * products.price)', 'value')
+        .leftJoin('order.order_details', 'order_details.order_id')
+        .leftJoin('order_details.product_id', 'products')
         .where('order.created_at >= :startDate', { startDate })
         .andWhere('order.created_at <= :endDate', { endDate })
-        .groupBy('label, order_details.product_id')
-        .orderBy('value', 'ASC')
+        .groupBy('label')
+        .orderBy('label', 'ASC')
         .limit(30)
         .getRawMany();
 
@@ -867,12 +869,15 @@ export class OrdersService {
   }
   async getHotSellingProduct(dashboardDto: DashboardDto) {
     /*
-    SELECT order_details.product_id, SUM(order_details.quantity) as total_quantity 
-    FROM public.orders
-    LEFT JOIN public.order_details
+    SELECT name as label, sum(quantity) as value
+    FROM orders
+    LEFT JOIN order_details
     ON "orders".id="order_details"."order_id"
+	  LEFT JOIN products
+    ON "products".id="order_details"."product_id"
     WHERE created_at >= '2023-01-01 00:00:00' AND created_at <= '2023-08-29 23:59:59'
-    GROUP BY order_details.product_id
+    GROUP by name
+    ORDER BY value desc
     */
 
     const { startDate, endDate } = dashboardDto;
@@ -880,12 +885,13 @@ export class OrdersService {
     try {
       const rawData = await this.orderRepository
         .createQueryBuilder('order')
-        .select('order_details.product_id', 'label')
+        .select('products.name', 'label')
         .addSelect('SUM(order_details.quantity)', 'value')
-        .leftJoin('order.order_details', 'order_details')
+        .leftJoin('order.order_details', 'order_details.order_id')
+        .leftJoin('order_details.product_id', 'products')
         .where('order.created_at >= :startDate', { startDate })
         .andWhere('order.created_at <= :endDate', { endDate })
-        .groupBy('order_details.product_id')
+        .groupBy('label')
         .orderBy('value', 'DESC')
         .limit(30)
         .getRawMany();
