@@ -1,0 +1,13 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+    - aws ecr get-login-password --region ap-southeast-1 | docker login --username AWS --password-stdin 429660533268.dkr.ecr.ap-southeast-1.amazonaws.com
+  build:
+    commands:
+    - docker build -t chainmart-be-orders .
+    - docker tag chainmart-be-orders:latest 429660533268.dkr.ecr.ap-southeast-1.amazonaws.com/chainmart-be-orders:latest
+  post_build:
+    commands:
+    - docker push 429660533268.dkr.ecr.ap-southeast-1.amazonaws.com/chainmart-be-orders:latest
