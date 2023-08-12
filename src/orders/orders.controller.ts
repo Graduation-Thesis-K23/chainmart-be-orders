@@ -166,4 +166,9 @@ export class OrdersController {
   getRevenuePerDay(@Payload() dashboardDto: DashboardDto) {
     return this.ordersService.getRevenuePerDay(dashboardDto);
   }
+
+  @MessagePattern('orders.getordersbyphone')
+  getOrdersByPhone(@Payload() phone: string) {
+    return this.ordersService.getOrdersByPhone(phone);
+  }
 }

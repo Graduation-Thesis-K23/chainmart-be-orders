@@ -1003,4 +1003,47 @@ export class OrdersService {
       throw new RpcException('Cannot get hot selling product');
     }
   }
+
+  async getOrdersByPhone(phone: string) {
+    console.log('getOrdersByPhone', phone);
+
+    /*
+    select status, sum(quantity * price) as total, CONCAT (street, ', ', ward, ', ', district, ', ', city) as address
+    from orders
+    left join order_details
+    on orders.id = order_details.order_id
+    left join address
+    on orders.address_id = address.id
+    left join products
+    on order_details.product_id = products.id
+    where phone = '0868738097'
+    group by order_id, status, address, created_at
+    order by created_at desc
+    limit 5
+    */
+
+    try {
+      const orders = await this.dataSource.query(
+        `
+        select status, sum(quantity * price) as total, CONCAT (street, ', ', ward, ', ', district, ', ', city) as address
+        from orders
+        left join order_details
+        on orders.id = order_details.order_id
+        left join address
+        on orders.address_id = address.id
+        left join products
+        on order_details.product_id = products.id
+        where phone = '${phone}'
+        group by order_id, status, address, created_at
+        order by created_at desc
+        limit 5
+      `,
+      );
+
+      return orders;
+    } catch (error) {
+      console.error(error);
+      throw new RpcException('Cannot get orders by phone');
+    }
+  }
 }
