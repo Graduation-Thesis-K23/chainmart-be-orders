@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ClientKafka, RpcException } from '@nestjs/microservices';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { instanceToPlain } from 'class-transformer';
 import { Cache } from 'cache-manager';
 import * as moment from 'moment-timezone';
@@ -26,6 +26,8 @@ import { StartShipmentByShipperDto } from './dto/start-shipment-by-shipper.dto';
 import { CompleteOrderByShipperDto } from './dto/complete-order-by-shipper.dto';
 import { CancelOrderByShipperDto } from './dto/cancel-order-by-shipper.dto';
 import { DashboardDto } from './dto/dashboard.to';
+import { ProductService } from '~/product/product.service';
+import { AddressService } from '~/address/address.service';
 
 @Injectable()
 export class OrdersService {
@@ -41,10 +43,17 @@ export class OrdersService {
     @Inject('RATE_SERVICE')
     private readonly rateClient: ClientKafka,
 
+    @Inject('SEARCH_SERVICE')
+    private readonly searchClient: ClientKafka,
+
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
 
     private readonly dataSource: DataSource,
+
+    private readonly productService: ProductService,
+
+    private readonly addressService: AddressService,
 
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
@@ -55,8 +64,6 @@ export class OrdersService {
       const order = this.orderRepository.create({
         ...createOrderDto,
       });
-
-      console.log('New order', order);
 
       if (createOrderDto.payment === Payment.Banking) {
         // Check if the previous banking has been paid or time out
@@ -75,7 +82,9 @@ export class OrdersService {
         console.log('Banking order', order);
       }
 
-      await this.orderRepository.save(order);
+      const newOrder = await this.orderRepository.save(order);
+
+      console.log('New order', newOrder);
 
       if (createOrderDto.payment === Payment.Banking) {
         await this.cacheManager.set(
@@ -85,12 +94,56 @@ export class OrdersService {
         ); // 3 minutes
       }
 
+      const ids = newOrder.order_details.map(
+        (order_detail) => order_detail.product_id,
+      );
+
+      // get name of ids
+      const slugs: string[] = await this.productService.getProductsByIds(ids);
+      const phone: string = await this.addressService.getAddressNameById(
+        newOrder.address_id,
+      );
+
+      console.log('phone', phone);
+
+      console.log('slugs', slugs);
+
       this.cartClient.emit('carts.orders.clean', createOrderDto.username);
+      this.searchClient.emit('search.order.index', {
+        id: newOrder.id,
+        order_code: newOrder.order_code,
+        user_id: newOrder.user_id,
+        slugs,
+        phone,
+      });
 
       return order;
     } catch (err) {
       console.error(err);
       throw new RpcException(err.message);
+    }
+  }
+
+  async findAllByIds(ids: string[]) {
+    console.log('findAllByIds', ids);
+
+    try {
+      const orders = await this.orderRepository.find({
+        where: {
+          id: In(ids),
+        },
+        relations: {
+          order_details: {
+            product: true,
+          },
+          address: true,
+        },
+      });
+
+      return instanceToPlain(orders);
+    } catch (error) {
+      console.error(error);
+      throw new RpcException('Cannot find orders');
     }
   }
 
@@ -1001,6 +1054,49 @@ export class OrdersService {
     } catch (error) {
       console.error(error);
       throw new RpcException('Cannot get hot selling product');
+    }
+  }
+
+  async getOrdersByPhone(phone: string) {
+    console.log('getOrdersByPhone', phone);
+
+    /*
+    select status, sum(quantity * price) as total, CONCAT (street, ', ', ward, ', ', district, ', ', city) as address
+    from orders
+    left join order_details
+    on orders.id = order_details.order_id
+    left join address
+    on orders.address_id = address.id
+    left join products
+    on order_details.product_id = products.id
+    where phone = '0868738097'
+    group by order_id, status, address, created_at
+    order by created_at desc
+    limit 5
+    */
+
+    try {
+      const orders = await this.dataSource.query(
+        `
+        select status, sum(quantity * price) as total, CONCAT (street, ', ', ward, ', ', district, ', ', city) as address
+        from orders
+        left join order_details
+        on orders.id = order_details.order_id
+        left join address
+        on orders.address_id = address.id
+        left join products
+        on order_details.product_id = products.id
+        where phone = '${phone}'
+        group by order_id, status, address, created_at
+        order by created_at desc
+        limit 5
+      `,
+      );
+
+      return orders;
+    } catch (error) {
+      console.error(error);
+      throw new RpcException('Cannot get orders by phone');
     }
   }
 }

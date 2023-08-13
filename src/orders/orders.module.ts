@@ -38,6 +38,27 @@ import { ProductModule } from '~/product/product.module';
         }),
       }, */
       {
+        name: 'SEARCH_SERVICE',
+        imports: [ConfigModule],
+        inject: [ConfigService],
+        useFactory: async (configService: ConfigService) => ({
+          transport: Transport.KAFKA,
+          options: {
+            client: {
+              clientId: 'orders-search',
+              brokers: [
+                `${configService.get('KAFKA_HOST')}:${configService.get(
+                  'KAFKA_PORT',
+                )}`,
+              ],
+            },
+            consumer: {
+              groupId: 'search-consumer',
+            },
+          },
+        }),
+      },
+      {
         imports: [ConfigModule],
         inject: [ConfigService],
         name: 'ORCHESTRATION_SERVICE',
