@@ -171,4 +171,9 @@ export class OrdersController {
   getOrdersByPhone(@Payload() phone: string) {
     return this.ordersService.getOrdersByPhone(phone);
   }
+
+  @MessagePattern('orders.findallbyids')
+  findAllByIds(@Payload() ids: any) {
+    return this.ordersService.findAllByIds(ids);
+  }
 }

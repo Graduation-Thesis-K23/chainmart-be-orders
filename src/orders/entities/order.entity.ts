@@ -1,5 +1,13 @@
-import { Column, Entity, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  OneToMany,
+  BeforeInsert,
+} from 'typeorm';
 import { Type } from 'class-transformer';
+import { customAlphabet } from 'nanoid';
 
 import { BaseEntity } from 'src/common/base.entity';
 import { OrderStatus, Payment, PaymentStatus } from 'src/shared';
@@ -13,6 +21,11 @@ export class Order extends BaseEntity {
 
   @Column()
   address_id: string;
+
+  @Column({
+    unique: true,
+  })
+  order_code: string;
 
   @ManyToOne(() => Address, (address) => address.id, {
     onDelete: 'CASCADE',
@@ -103,4 +116,15 @@ export class Order extends BaseEntity {
     nullable: true,
   })
   expiration_timestamp?: Date;
+
+  @BeforeInsert()
+  async hashPassword(): Promise<void> {
+    try {
+      const nanoid = customAlphabet('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ', 11);
+
+      this.order_code = nanoid();
+    } catch (error) {
+      console.error(error);
+    }
+  }
 }

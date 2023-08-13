@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ClientKafka, RpcException } from '@nestjs/microservices';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { instanceToPlain } from 'class-transformer';
 import { Cache } from 'cache-manager';
 import * as moment from 'moment-timezone';
@@ -41,6 +41,9 @@ export class OrdersService {
     @Inject('RATE_SERVICE')
     private readonly rateClient: ClientKafka,
 
+    @Inject('SEARCH_SERVICE')
+    private readonly searchClient: ClientKafka,
+
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
 
@@ -55,8 +58,6 @@ export class OrdersService {
       const order = this.orderRepository.create({
         ...createOrderDto,
       });
-
-      console.log('New order', order);
 
       if (createOrderDto.payment === Payment.Banking) {
         // Check if the previous banking has been paid or time out
@@ -75,7 +76,9 @@ export class OrdersService {
         console.log('Banking order', order);
       }
 
-      await this.orderRepository.save(order);
+      const newOrder = await this.orderRepository.save(order);
+
+      console.log('New order', newOrder);
 
       if (createOrderDto.payment === Payment.Banking) {
         await this.cacheManager.set(
@@ -86,11 +89,39 @@ export class OrdersService {
       }
 
       this.cartClient.emit('carts.orders.clean', createOrderDto.username);
+      this.searchClient.emit('search.order.index', {
+        id: newOrder.id,
+        order_code: newOrder.order_code,
+        user_id: newOrder.user_id,
+      });
 
       return order;
     } catch (err) {
       console.error(err);
       throw new RpcException(err.message);
+    }
+  }
+
+  async findAllByIds(ids: string[]) {
+    console.log('findAllByIds', ids);
+
+    try {
+      const orders = await this.orderRepository.find({
+        where: {
+          id: In(ids),
+        },
+        relations: {
+          order_details: {
+            product: true,
+          },
+          address: true,
+        },
+      });
+
+      return instanceToPlain(orders);
+    } catch (error) {
+      console.error(error);
+      throw new RpcException('Cannot find orders');
     }
   }
 
