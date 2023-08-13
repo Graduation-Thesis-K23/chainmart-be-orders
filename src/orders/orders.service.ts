@@ -26,6 +26,8 @@ import { StartShipmentByShipperDto } from './dto/start-shipment-by-shipper.dto';
 import { CompleteOrderByShipperDto } from './dto/complete-order-by-shipper.dto';
 import { CancelOrderByShipperDto } from './dto/cancel-order-by-shipper.dto';
 import { DashboardDto } from './dto/dashboard.to';
+import { ProductService } from '~/product/product.service';
+import { AddressService } from '~/address/address.service';
 
 @Injectable()
 export class OrdersService {
@@ -48,6 +50,10 @@ export class OrdersService {
     private readonly orderRepository: Repository<Order>,
 
     private readonly dataSource: DataSource,
+
+    private readonly productService: ProductService,
+
+    private readonly addressService: AddressService,
 
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
@@ -88,11 +94,27 @@ export class OrdersService {
         ); // 3 minutes
       }
 
+      const ids = newOrder.order_details.map(
+        (order_detail) => order_detail.product_id,
+      );
+
+      // get name of ids
+      const slugs: string[] = await this.productService.getProductsByIds(ids);
+      const phone: string = await this.addressService.getAddressNameById(
+        newOrder.address_id,
+      );
+
+      console.log('phone', phone);
+
+      console.log('slugs', slugs);
+
       this.cartClient.emit('carts.orders.clean', createOrderDto.username);
       this.searchClient.emit('search.order.index', {
         id: newOrder.id,
         order_code: newOrder.order_code,
         user_id: newOrder.user_id,
+        slugs,
+        phone,
       });
 
       return order;

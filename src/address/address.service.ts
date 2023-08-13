@@ -18,4 +18,16 @@ export class AddressService {
       console.error(error);
     }
   }
+
+  async getAddressNameById(id: string) {
+    try {
+      const address = await this.addressRepository.findOneBy({ id });
+      if (!address) {
+        throw new Error('Address not found');
+      }
+      return address.phone;
+    } catch (error) {
+      console.error(error);
+    }
+  }
 }
