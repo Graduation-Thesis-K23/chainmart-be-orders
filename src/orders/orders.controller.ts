@@ -8,27 +8,7 @@ import { DashboardDto } from './dto/dashboard.to';
 @Controller()
 @UseFilters(new ExceptionFilter())
 export class OrdersController {
-  constructor(
-    private readonly ordersService: OrdersService,
-  ) /*  @Inject('PRODUCT_SERVICE')
-    private readonly productClient: ClientKafka, */ {}
-
-  /*  async onModuleInit() {
-    const topics = [
-      'create',
-      'findall',
-      'findbyids',
-      'findbyid',
-      'findbyslug',
-      'update',
-      'delete',
-      'staticpaths',
-    ];
-    topics.forEach((topic) => {
-      this.productClient.subscribeToResponseOf(`products.${topic}`);
-    });
-    await this.productClient.connect();
-  } */
+  constructor(private readonly ordersService: OrdersService) {}
 
   @MessagePattern('orders.create')
   create(@Payload() createOrderDto: any) {
@@ -136,14 +116,22 @@ export class OrdersController {
     this.ordersService.updateOrderToCancelled(id);
   }
 
+  /**
+   * @deprecated The method should not be used
+   */
   @MessagePattern('orders.findbankingorderbyuserid')
   findBankingOrderByUserId(@Payload() user_id: string) {
     return this.ordersService.findBankingOrderByUserId(user_id);
   }
 
+  @MessagePattern('orders.findbankingorderbyid')
+  findBankingOrderById(@Payload() id: string) {
+    return this.ordersService.findBankingOrderById(id);
+  }
+
   @EventPattern('orders.makepayment')
-  makePayment(@Payload() user_id: string) {
-    return this.ordersService.makePayment(user_id);
+  makePayment(@Payload() id: string) {
+    return this.ordersService.makePayment(id);
   }
 
   @EventPattern('orders.cancelbankingorderbyid')

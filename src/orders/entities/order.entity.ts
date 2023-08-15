@@ -104,11 +104,6 @@ export class Order extends BaseEntity {
   @Column({
     nullable: true,
   })
-  banking_token?: string;
-
-  @Column({
-    nullable: true,
-  })
   payment_status?: PaymentStatus;
 
   @Column({

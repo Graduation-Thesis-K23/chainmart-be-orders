@@ -31,7 +31,7 @@ import { AddressService } from '~/address/address.service';
 
 @Injectable()
 export class OrdersService {
-  private readonly ORDER_DURATION = 3 * 60 * 1000; // 3 minutes
+  private readonly ORDER_DURATION_MS = 3 * 60 * 1000; // 3 minutes
 
   constructor(
     @Inject('ORCHESTRATION_SERVICE')
@@ -66,18 +66,10 @@ export class OrdersService {
       });
 
       if (createOrderDto.payment === Payment.Banking) {
-        // Check if the previous banking has been paid or time out
-        const previousBankingOrder = await this.cacheManager.get(
-          createOrderDto.user_id,
-        );
-        if (previousBankingOrder) {
-          throw new RpcException('Please finish the previous order first');
-        }
-
         order.payment_status = PaymentStatus.Unpaid;
         order.expiration_timestamp = moment()
           .tz('Asia/Ho_Chi_Minh')
-          .add(this.ORDER_DURATION, 'ms')
+          .add(this.ORDER_DURATION_MS, 'ms')
           .toDate();
         console.log('Banking order', order);
       }
@@ -88,10 +80,10 @@ export class OrdersService {
 
       if (createOrderDto.payment === Payment.Banking) {
         await this.cacheManager.set(
-          createOrderDto.user_id,
+          newOrder.id,
           instanceToPlain(order),
-          this.ORDER_DURATION,
-        ); // 3 minutes
+          this.ORDER_DURATION_MS,
+        );
       }
 
       const ids = newOrder.order_details.map(
@@ -140,6 +132,8 @@ export class OrdersService {
         },
       });
 
+      await this.checkOrdersNeedToCancel(orders);
+
       return instanceToPlain(orders);
     } catch (error) {
       console.error(error);
@@ -171,18 +165,7 @@ export class OrdersService {
         },
       });
 
-      // Check if order needs to be cancelled
-      for (const order of orders) {
-        if (order.payment === Payment.Banking) {
-          const tenMinutes = Date.now() + this.ORDER_DURATION;
-          // 10 minutes passed
-          if (order.created_at.getTime() > tenMinutes) {
-            order.status = OrderStatus.Cancelled;
-            await this.orderRepository.save(order);
-            break; // only 1 order being processing at a time
-          }
-        }
-      }
+      await this.checkOrdersNeedToCancel(orders);
 
       return instanceToPlain(orders);
     } catch (error) {
@@ -191,9 +174,29 @@ export class OrdersService {
     }
   }
 
+  private async checkOrdersNeedToCancel(orders: Order[]) {
+    try {
+      for (let order of orders) {
+        if (order.payment === Payment.Banking) {
+          const currentTime = moment().tz('Asia/Ho_Chi_Minh');
+          console.log(order.id, moment(order.expiration_timestamp));
+
+          if (
+            order.status === OrderStatus.Created &&
+            moment(order.expiration_timestamp).isBefore(currentTime)
+          ) {
+            order = await this.updateOrderToCancelled(order.id);
+          }
+        }
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
   async findAllByUserId(userId: string) {
     try {
-      return await this.orderRepository.find({
+      const orders = await this.orderRepository.find({
         relations: {
           order_details: {
             product: true,
@@ -204,6 +207,10 @@ export class OrdersService {
           user_id: userId,
         },
       });
+
+      await this.checkOrdersNeedToCancel(orders);
+
+      return instanceToPlain(orders);
     } catch (error) {
       console.error(error);
       throw new RpcException('Cannot find orders by user_id');
@@ -265,16 +272,10 @@ export class OrdersService {
   }
 
   async cancel(cancelOrderDto: CancelOrderDto) {
+    console.log('cancelOrderDto', cancelOrderDto);
     const order = await this.orderRepository.findOne({
       where: {
         id: cancelOrderDto.order_id,
-        user_id: cancelOrderDto.user_id,
-      },
-      relations: {
-        order_details: {
-          product: true,
-        },
-        address: true,
       },
     });
     if (!order) {
@@ -291,16 +292,17 @@ export class OrdersService {
     }
 
     try {
-      order.status = OrderStatus.Cancelled;
-      order.cancelled_date = new Date();
-      order.cancelled_by = cancelOrderDto.user_id;
+      const cancelledOrder = await this.orderRepository.save({
+        ...order,
+        status: OrderStatus.Cancelled,
+        cancelled_date: new Date(),
+        cancelled_by: cancelOrderDto.user_id,
+      });
 
-      await this.orderRepository.save(order);
-
-      return instanceToPlain(order);
+      return instanceToPlain(cancelledOrder);
     } catch (error) {
       console.error(error);
-      throw new RpcException('Failed to cancel order');
+      throw new RpcException('Cannot cancel order');
     }
   }
 
@@ -439,6 +441,8 @@ export class OrdersService {
           },
         });
 
+        await this.checkOrdersNeedToCancel(orders);
+
         return instanceToPlain(orders);
       } else {
         if (status === OrderStatus.Created) {
@@ -456,6 +460,7 @@ export class OrdersService {
               created_at: 'DESC',
             },
           });
+
           return instanceToPlain(orders);
         } else {
           const orders = await this.orderRepository.find({
@@ -473,6 +478,9 @@ export class OrdersService {
               created_at: 'DESC',
             },
           });
+
+          await this.checkOrdersNeedToCancel(orders);
+
           return instanceToPlain(orders);
         }
       }
@@ -505,6 +513,8 @@ export class OrdersService {
       order.approved_date = new Date();
       order.approved_by = approveOrderByEmployeeDto.phone;
       order.branch_id = approveOrderByEmployeeDto.branch_id;
+      order.payment_status =
+        order.payment === Payment.Banking ? PaymentStatus.Paid : null;
 
       console.log('order', order);
 
@@ -706,6 +716,8 @@ export class OrdersService {
           break;
       }
 
+      await this.checkOrdersNeedToCancel(orders);
+
       return instanceToPlain(orders);
     } catch (error) {
       console.error(error);
@@ -861,6 +873,7 @@ export class OrdersService {
   }
 
   async updateOrderToCancelled(id: string) {
+    console.log('id to cancelled', id);
     try {
       const order = await this.orderRepository.findOne({
         where: {
@@ -882,7 +895,7 @@ export class OrdersService {
           order.payment === Payment.Banking &&
           order.payment_status === PaymentStatus.Processing
             ? PaymentStatus.Failed
-            : null,
+            : PaymentStatus.Unpaid,
       });
 
       console.log('Cancelled Order', cancelledOrder);
@@ -894,6 +907,9 @@ export class OrdersService {
     }
   }
 
+  /**
+   * @deprecated The method should not be used
+   */
   async findBankingOrderByUserId(user_id: string) {
     try {
       const orderCached = await this.cacheManager.get(user_id);
@@ -924,12 +940,43 @@ export class OrdersService {
     }
   }
 
-  async makePayment(user_id: string) {
+  async findBankingOrderById(id: string) {
     try {
-      const orderCached: Order = await this.cacheManager.get(user_id);
+      const orderCached = await this.cacheManager.get(id);
+      console.log('Order cached', orderCached);
+      if (orderCached) {
+        return orderCached;
+      }
+
+      const orderInDb = await this.orderRepository.findOne({
+        where: {
+          id: id,
+          status: OrderStatus.Created,
+          payment: Payment.Banking,
+          payment_status: PaymentStatus.Unpaid,
+        },
+      });
+
+      if (!orderInDb) {
+        console.log('No banking order found');
+        throw new RpcException('No banking order available');
+      }
+
+      const updatedOrderInDb = await this.updateOrderToCancelled(orderInDb.id);
+
+      return updatedOrderInDb;
+    } catch (error) {
+      console.error(error);
+      throw new RpcException('Cannot to find banking order by user id');
+    }
+  }
+
+  async makePayment(id: string) {
+    try {
+      const orderCached: Order = await this.cacheManager.get(id);
       console.log('Payment - Order cached', orderCached);
       if (!orderCached) {
-        throw new RpcException('There is no order available');
+        throw new Error('There is no order available');
       }
 
       await this.orderRepository.save({
@@ -940,7 +987,6 @@ export class OrdersService {
       this.orchestrationClient.emit('orchestration.orders.paid', orderCached);
     } catch (error) {
       console.error(error);
-      throw new RpcException('Cannot make payment');
     }
   }
 
