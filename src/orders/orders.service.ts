@@ -236,6 +236,37 @@ export class OrdersService {
     }
   }
 
+  async getAllOrdersByAdmin(status: OrderStatus | 'all') {
+    console.log('status', status);
+    // status = 'all' => get all orders
+
+    try {
+      const orders = await this.orderRepository.find({
+        where: {
+          ...{
+            status: status !== 'all' ? status : undefined,
+          },
+        },
+        relations: {
+          order_details: {
+            product: true,
+          },
+          address: true,
+        },
+        order: {
+          created_at: 'DESC',
+        },
+      });
+
+      await this.checkOrdersNeedToCancel(orders);
+
+      return instanceToPlain(orders);
+    } catch (error) {
+      console.error(error);
+      throw new RpcException('Failed to get all orders by admin');
+    }
+  }
+
   async update(id: string, updateOrderDto: UpdateOrderDto) {
     try {
       const order = await this.orderRepository.findOneBy({ id });

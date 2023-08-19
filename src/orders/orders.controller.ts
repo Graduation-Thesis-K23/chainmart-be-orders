@@ -66,6 +66,11 @@ export class OrdersController {
     return this.ordersService.findAllByEmployee(findAllByEmployeeDto);
   }
 
+  @MessagePattern('orders.findallbyadmin')
+  getAllOrdersByAdmin(@Payload() status: any) {
+    return this.ordersService.getAllOrdersByAdmin(status);
+  }
+
   @MessagePattern('orders.approveorderbyemployee')
   approveOrderByEmployee(@Payload() approveOrderByEmployeeDto: any) {
     return this.ordersService.approveOrderByEmployee(approveOrderByEmployeeDto);
