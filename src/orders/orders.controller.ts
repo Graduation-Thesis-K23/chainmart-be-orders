@@ -10,6 +10,12 @@ import { DashboardDto } from './dto/dashboard.to';
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
+  @MessagePattern('orders.health-check')
+  async healthCheck() {
+    console.log('orders.health-check received');
+    return 'orders service is working';
+  }
+
   @MessagePattern('orders.create')
   create(@Payload() createOrderDto: any) {
     return this.ordersService.create(createOrderDto);
