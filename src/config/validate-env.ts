@@ -7,8 +7,7 @@ export const configValidationSchema = Joi.object({
   DB_PASSWORD: Joi.string().required(),
   DB_DATABASE: Joi.string().required(),
 
-  KAFKA_HOST: Joi.string().required(),
-  KAFKA_PORT: Joi.number().required(),
+  KAFKA_BROKERS: Joi.string().required(),
 
   REDIS_HOST: Joi.string().required(),
   REDIS_PORT: Joi.number().required(),

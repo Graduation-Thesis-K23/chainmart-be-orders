@@ -16,27 +16,6 @@ import { ProductModule } from '~/product/product.module';
     TypeOrmModule.forFeature([Order, OrderDetail]),
     CacheModule.register(),
     ClientsModule.registerAsync([
-      /* {
-        imports: [ConfigModule],
-        inject: [ConfigService],
-        name: 'PRODUCT_SERVICE',
-        useFactory: async (configService) => ({
-          transport: Transport.KAFKA,
-          options: {
-            client: {
-              clientId: 'product',
-              brokers: [
-                `${configService.get('KAFKA_HOST')}:${configService.get(
-                  'KAFKA_PORT',
-                )}`,
-              ],
-            },
-            consumer: {
-              groupId: 'product-consumer',
-            },
-          },
-        }),
-      }, */
       {
         name: 'SEARCH_SERVICE',
         imports: [ConfigModule],
@@ -46,11 +25,7 @@ import { ProductModule } from '~/product/product.module';
           options: {
             client: {
               clientId: 'orders-search',
-              brokers: [
-                `${configService.get('KAFKA_HOST')}:${configService.get(
-                  'KAFKA_PORT',
-                )}`,
-              ],
+              brokers: configService.get('KAFKA_BROKERS').split(','),
             },
             consumer: {
               groupId: 'search-consumer',
@@ -67,11 +42,7 @@ import { ProductModule } from '~/product/product.module';
           options: {
             client: {
               clientId: 'orders-orchestration',
-              brokers: [
-                `${configService.get('KAFKA_HOST')}:${configService.get(
-                  'KAFKA_PORT',
-                )}`,
-              ],
+              brokers: configService.get('KAFKA_BROKERS').split(','),
             },
             consumer: {
               groupId: 'orchestration-consumer-orders',
@@ -88,11 +59,7 @@ import { ProductModule } from '~/product/product.module';
           options: {
             client: {
               clientId: 'rate-orders',
-              brokers: [
-                `${configService.get('KAFKA_HOST')}:${configService.get(
-                  'KAFKA_PORT',
-                )}`,
-              ],
+              brokers: configService.get('KAFKA_BROKERS').split(','),
             },
             consumer: {
               groupId: 'rate-consumer',
@@ -110,11 +77,7 @@ import { ProductModule } from '~/product/product.module';
             options: {
               client: {
                 clientId: 'carts-rate',
-                brokers: [
-                  `${configService.get('KAFKA_HOST')}:${configService.get(
-                    'KAFKA_PORT',
-                  )}`,
-                ],
+                brokers: configService.get('KAFKA_BROKERS').split(','),
               },
               consumer: {
                 groupId: 'carts-consumer',

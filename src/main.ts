@@ -11,7 +11,7 @@ async function bootstrap() {
       transport: Transport.KAFKA,
       options: {
         client: {
-          brokers: [`${process.env.KAFKA_HOST}:${process.env.KAFKA_PORT}`],
+          brokers: process.env.KAFKA_BROKERS.split(','),
         },
         consumer: {
           groupId: 'orders-consumer',
@@ -29,8 +29,6 @@ async function bootstrap() {
 
   await app.listen();
 
-  console.log(
-    `App listen Kafka at: ${process.env.KAFKA_HOST}:${process.env.KAFKA_PORT}`,
-  );
+  console.log(`App joined Kafka at: ${process.env.KAFKA_BROKERS}`);
 }
 bootstrap();
