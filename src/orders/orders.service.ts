@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ClientKafka, RpcException } from '@nestjs/microservices';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, In, IsNull, Repository } from 'typeorm';
 import { instanceToPlain } from 'class-transformer';
 import { Cache } from 'cache-manager';
 import * as moment from 'moment-timezone';
@@ -691,7 +691,7 @@ export class OrdersService {
             where: {
               status: OrderStatus.Started,
               branch_id,
-              completed_by: null,
+              completed_by: IsNull(),
             },
             relations: {
               order_details: {

@@ -16,8 +16,4 @@ RUN adduser --system --uid 1001 nestjs
 
 USER nestjs
 
-EXPOSE 3000
-
-ENV PORT 3000
-
 CMD ["node", "dist/main"]
