@@ -691,7 +691,7 @@ export class OrdersService {
             where: {
               status: OrderStatus.Started,
               branch_id,
-              received_date: null,
+              completed_by: null,
             },
             relations: {
               order_details: {
