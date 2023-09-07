@@ -659,7 +659,7 @@ export class OrdersService {
   }
 
   async getOrdersByShipper(getOrdersByShipperDto: GetOrdersByShipperDto) {
-    console.log('getOrdersByShipperDto', getOrdersByShipperDto);
+    console.log('shipper-get-orders', getOrdersByShipperDto);
 
     const { status, phone, branch_id } = getOrdersByShipperDto;
 
